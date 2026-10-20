@@ -66,7 +66,15 @@ Last updated: 2026-10-20 (round 2 under way).
 - The Dungeon Master and hidden-message tests wait for your yes.
 
 ## 5. Your part, in order
-1. Copy the important data off the D: drive (it is failing).
-2. Run `Security fixes.cmd` once and answer yes or no per fix (Remote Desktop, Hyper-V, power-cut recovery first).
-3. Delete the old key copies, then replace the keys (steps in SEC-FIX-8).
-4. Tailscale and Cloudflare click steps.
+1. **Copy the important data off the D: drive** (it is failing): the 960 GB of server backups and the 531 GB EDITING folder. Then replace the disk.
+2. **Give Minecraft a second backup place** (SEC-RES-8), with SMP Main: DriveBackupV2 saves only to D:. Turn on a cloud target in its config, or copy to the main PC.
+3. **Answer: where does arcade-server (MustaHub) run, and is it what serves musta.no?** (SEC-PROG-19, desk question Q-ARCADE-DEPLOYED). If yes, pass the fix to the MustaHub chats: every admin and overlay function must check the session and the admin role. Until then, keep the Cloudflare login on musta.no.
+4. **Run `C:\server\security\console\Security fixes.cmd`** once, after Server marks the packs ready. Windows asks once; you answer yes or no per fix. Suggested order: Remote Desktop (FIX-1), Hyper-V (FIX-2), power-cut recovery (FIX-5, you type your Windows password in Windows' own box), the Tailscale blocks (FIX-3), the program rules (FIX-4), the key-file permissions (FIX-8).
+5. **Replace the keys** (steps in FIX-8's README and HB-security-secrets): new key, swap it in, check the game, revoke the old one. Then delete the five old copies FIX-8 lists.
+6. **Cloudflare DNS for musta.no** (SEC-NET-14): add a TXT record.
+   - Name: `_dmarc`
+   - Content, to start with (only reports, nothing blocked): `v=DMARC1; p=none; rua=mailto:<an address you read>`
+   - After two weeks with no surprises, change `p=none` to `p=quarantine`.
+7. **Tailscale**: paste the access rule from FIX-7's README (shared people reach only port 7420), after backing up the current one as the README says.
+8. **musta.no questions** (SEC-RES-13): where is it hosted, where is its code kept besides GitHub, is there a database or uploads outside git, and who can restore it?
+9. **Questions from the agents check**: which permission mode do Server, the game chats and the Control chat run in? Is GitHub's branch protection on? What are the four unnamed accounts with permissions on C:\server?
