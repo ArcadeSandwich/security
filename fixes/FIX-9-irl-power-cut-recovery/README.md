@@ -1,6 +1,6 @@
 # FIX-9 Power-cut recovery for the IRL dashboards (SEC-FIX-9)
 
-Status: reviewed-security (Server's review next, under the freeze)
+Status: ready
 
 ## What and why
 - Finding: **SEC-RES-12, medium** (Security · Resilience, round 2).

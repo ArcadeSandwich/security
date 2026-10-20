@@ -1,7 +1,7 @@
 # Approved scripts: "<path from the security folder> <SHA-256>", one per line, e.g. "fixes/FIX-1-x/fix.ps1 <hash>".
 # ONLY Server writes this file, after its review. The console refuses any file that runs elevated (pack scripts, lib, probe, console\apply.ps1 and common.ps1) not listed
 # here with a matching hash.
-# Reviewed and approved by Oak World Server on 2026-10-20 at security commit 57679ee. FIX-10 added after review on 2026-10-20. FIX-0-example is approved only for the Admin's first run (a harmless test); Server removes it afterwards.
+# Reviewed and approved by Oak World Server on 2026-10-20 at security commit 57679ee. FIX-10 and FIX-9 added after review on 2026-10-20. FIX-0-example is approved only for the Admin's first run (a harmless test); Server removes it afterwards.
 console/apply.ps1 A45432F1CF42C8828B9294E712D05398C11F3069FA2A6E1BA96CC587DCC1DB54
 console/common.ps1 C0685ED654E17014421F1EBA82BFC01E7CB927B4EA1E299664C13576750A34F3
 lib/common.ps1 EAE69884BD71207A09CB88B2514488D726B8F4CC70B306CB60A61ACD04EC2E92
@@ -28,3 +28,5 @@ probe/parts/recovery.ps1 2FDECC397617B35311CF48AFF7EAEF2F7F70148E87BEEDAC1E3DDFE
 probe/sections/disk-recovery.ps1 0B2DBA7AA4B679B64F260927C7734D98A853691E8AE2BEC0B28B9023B51E90E6
 fixes/FIX-10-smb-signing/fix.ps1 91C690071E42773A10940017AF07EDE2B1DAA17B8F371EBFD9DBECDE1A5D514E
 fixes/FIX-10-smb-signing/check.ps1 28C045C44441B539E3B2586249CE46BBD9223C27C685B10283E31DF346825944
+fixes/FIX-9-irl-power-cut-recovery/fix.ps1 980A73332E9A9191E5CD81B27157C00069CE18E27CF21896726CDAD45CD7ABF0
+fixes/FIX-9-irl-power-cut-recovery/check.ps1 0556455F3A0A68F4195E6B935C18E6FFC2A16BDFEAA87788FDF4A0B82BFA4A4F
