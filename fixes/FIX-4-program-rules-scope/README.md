@@ -11,6 +11,7 @@ Status: ready
 - **Left out on purpose:**
   - Java (java.exe, javaw.exe, OpenJDK): its program rules carry Minecraft's voice chat (UDP 24454) for players.
   - Port rules such as "Cadeys World Rule" (25565): Minecraft is public on purpose.
+  - Delivery Optimization (7680) is not a program rule, so this pack doesn't cover it. Over IPv6 its rule allows any address on the Public profile; switch it off with the Settings step in FIX-10.
 - **Risk:** low.
   - A program in the list can no longer take connections from the home network. None does today.
   - **Side effect over Tailscale: none.** The rules keep Tailscale addresses, so a tailnet device that uses node (the Prompt generator on 7420), OBS or bun today keeps working. Only the home network and the internet lose access, and none of the six programs listens there today (NET-P1, 2026-10-20). If a new program of these six later serves the home network on purpose, it would need its own rule.

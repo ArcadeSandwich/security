@@ -27,6 +27,8 @@ Status: ready
 3. To undo: `fix.ps1 -Undo` elevated, then `check.ps1` (FAIL is expected after an undo).
 
 ## The Admin's Settings step (no script): Delivery Optimization (port 7680)
+**This matters more than it looks:** the home network card has public IPv6 addresses (SEC-NET-19), and the 7680 rule allows any address on the Public profile, so the peer-download port may be reachable from the internet over IPv6. Do this step together with FIX-1 and FIX-2.
+
 Windows Update can share update files with other PCs through port 7680, and its firewall rule allows any address. To switch that off:
 1. Open Settings, then Update & Security, then Delivery Optimization.
 2. Switch off "Allow downloads from other PCs".
