@@ -85,8 +85,11 @@ Ranks: **high** means someone could get in or something important could be lost;
 10. **MustaHub:** if arcade-server is what runs musta.no, hand `C:\server\security\patches\SEC-PROG-19` and `SEC-PROG-25` to the MustaHub chats. For SEC-PROG-25, add the site's address as a redirect URL in the Twitch developer console (a login step).
 11. **When IRLToolkit is back:** create the private GitHub repository ArcadeSandwich/irl-stream (a login step) after its git-settings patch.
 
+## For your information: unused sign-ins
+Some apps you may not use still hold saved sign-ins on this PC: Codex, the Ollama app and Office. If you don't use them, sign out of them. Nothing found them in any repository or backup.
+
 ## For your information: memory
-Free memory on cadeyserver fell to about 0.6 GB of 16 GB overnight. The chats (about 29 Claude processes, about 6 GB together) plus Minecraft (about 2.7 GB) use most of it. Security paused every live test below the 1 GB safety line; code reading and patches went on. In the morning you can close the chats that have finished their work, which frees the most memory.
+Free memory on cadeyserver fell to about 0.6 GB of 16 GB overnight. The chats (about 29 Claude processes, about 6.2 GB together, most of them 330 to 380 MB each) plus Minecraft (about 2.8 GB, normal) use most of it. Nothing is leaking or running away. Security paused every live test below the 1 GB safety line; code reading and patches went on. In the morning you can close the chats that have finished their work, which frees the most memory.
 
 ## Questions for you
 - **Is anything on your Tailscale network besides your own devices?** (Ollama answers every Tailscale device.)
