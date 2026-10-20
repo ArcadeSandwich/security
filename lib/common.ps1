@@ -16,7 +16,8 @@ function Test-Elevated {
 function Remove-Secrets([string]$s) {
     if ($null -eq $s) { return $s }
     $s = [regex]::Replace($s, '(?i)\b([\w-]*(key|token|secret|password|passwd|pwd|auth|code|cookie)[\w-]*)(\s*[=:]\s*)("[^"]*"|''[^'']*''|\S+)', { param($m) "$($m.Groups[1].Value)$($m.Groups[3].Value)<hidden>" })
-    $s = [regex]::Replace($s, '[A-Za-z0-9_+/=-]{40,}', { param($m) "<hidden len $($m.Value.Length)>" })
+    # Long token-like runs go; Windows account ids (S-1-5-...) are not secrets and stay readable.
+    $s = [regex]::Replace($s, '[A-Za-z0-9_+/=-]{40,}', { param($m) if ($m.Value -match '^S-1-\d+(-\d+)+$') { $m.Value } else { "<hidden len $($m.Value.Length)>" } })
     return $s
 }
 
