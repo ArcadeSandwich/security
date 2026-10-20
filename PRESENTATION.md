@@ -37,7 +37,7 @@ Ranks: **high** means someone could get in or something important could be lost;
 ### Being fixed by the chats that own the code
 | Rank | What it means | Status |
 |---|---|---|
-| High | **The Control chat could change any file and push to GitHub, and the Plan boxes had full tools while reading players' text.** | **Control: fixed and rechecked** (everything blocked except reading and listing, key files blocked, old chat retired). Plan boxes: same fix, recheck running. Logging is also hardening the secret check on Control's tracker rows (it missed encoded or key-shaped text) |
+| High | **The Control chat could change any file and push to GitHub, and the Plan boxes had full tools while reading players' text.** | **Fixed and rechecked for both** (everything blocked except reading and listing, key files blocked, old chat retired). Logging is also hardening the secret check on Control's tracker rows (it missed encoded or key-shaped text) |
 | High (less likely) | The MAIN and Absurdity boxes on the Work page keep full tools. | **Your choice** (desk question Q-AG17-BOXES) |
 | Medium | MAIN's start-prompt tool sends text into any chat that has the right title. | With Logging |
 | Medium | The AI Workspace app's link handling and update check have gaps. | With the AI Workspace Manager |
