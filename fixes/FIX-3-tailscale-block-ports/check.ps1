@@ -1,5 +1,6 @@
 # SEC-FIX-3 check (read-only, no admin rights): every block rule of this pack exists, is on, blocks, and is
 # limited to the Tailscale local addresses.
+$env:PSModulePath = "$env:windir\System32\WindowsPowerShell\v1.0\Modules"   # R1: before any cmdlet that autoloads a module
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 . (Join-Path $root 'lib\common.ps1')

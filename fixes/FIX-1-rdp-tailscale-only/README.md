@@ -6,6 +6,7 @@ Status: reviewed-security
 - **What it does:** every enabled inbound allow rule on port 3389 gets Remote IP `100.64.0.0/10` and `fd7a:115c:a1e0::/48` (Tailscale's IPv4 and IPv6 ranges). Remote Desktop stays on; it works from the Admin's Tailscale devices only.
 - **What it does not do:** it doesn't switch Remote Desktop off, change NLA or passwords, or touch any other rule. Over Tailscale, the separate "Tailscale-In" rule (W-9) still lets tailnet devices in; SEC-FIX-3 handles that.
 - **Risk:** low. If the Admin uses Remote Desktop from a device without Tailscale, that stops working; `-Undo` brings the old rules back exactly.
+- **Don't apply while connected over Remote Desktop from the home network: the session drops.** Apply it while sitting at the PC, or from a Remote Desktop session over Tailscale.
 - **Windows permission:** an elevated window (administrator), for the dry run that records state, for Apply and for Undo. `check.ps1` and an unelevated dry run need none.
 
 ## Use

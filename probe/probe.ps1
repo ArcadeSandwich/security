@@ -16,6 +16,7 @@
 #>
 [CmdletBinding()]
 param([switch]$Deep)
+$env:PSModulePath = "$env:windir\System32\WindowsPowerShell\v1.0\Modules"   # R1: before any cmdlet that autoloads a module
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
@@ -68,11 +69,11 @@ Add-Section 'remoteDesktop' {
     [ordered]@{ on = ($ts.fDenyTSConnections -eq 0); nla = ($rdp.UserAuthentication -eq 1); port = $rdp.PortNumber }
 }
 Add-Section 'tailscale' {
-    $t = tailscale status --json | ConvertFrom-Json
+    $t = & $script:Tailscale status --json | ConvertFrom-Json
     $peers = @($t.Peer.psobject.Properties.Value)
     [ordered]@{ peers = $peers.Count; online = @($peers | Where-Object Online).Count; sharedIn = @($peers | Where-Object ShareeNode).Count
         otherUsers = @($peers | Where-Object { $_.UserID -ne $t.Self.UserID }).Count; exitNodeInUse = [bool]$t.ExitNodeStatus
-        offersExitNode = [bool]$t.Self.ExitNodeOption; serve = ((tailscale serve status 2>&1) -join ' ') }
+        offersExitNode = [bool]$t.Self.ExitNodeOption; serve = ((& $script:Tailscale serve status 2>&1) -join ' ') }
 }
 Add-Section 'tunnel' {
     $c = Invoke-RestMethod -TimeoutSec 5 'http://127.0.0.1:20241/config'
@@ -87,7 +88,16 @@ Add-Section 'userEnvironmentSecrets' {
     @($u.Keys | Where-Object { $_ -match 'KEY|TOKEN|SECRET|PASS|CODE' } | Sort-Object | ForEach-Object { [ordered]@{ name = $_; set = $true; length = "$($u[$_])".Length } })
 }
 Add-Section 'multipass' {
-    @((multipass list --format json | ConvertFrom-Json).list | ForEach-Object { [ordered]@{ name = $_.name; state = $_.state; addresses = @($_.ipv4) } })
+    @((& $script:Multipass list --format json | ConvertFrom-Json).list | ForEach-Object { [ordered]@{ name = $_.name; state = $_.state; addresses = @($_.ipv4) } })
+}
+
+Add-Section 'secretFilePermissions' {
+    # Who may read or change the game's secret files (names and rights only, never the contents), so drift shows.
+    @('C:\server\oak-world\oak-world\oak-config.json', 'C:\server\oak-world\oak-world\access.json' | ForEach-Object {
+        if (-not (Test-Path -LiteralPath $_)) { return [ordered]@{ file = $_; present = $false } }
+        $acl = Get-Acl -LiteralPath $_
+        [ordered]@{ file = $_; present = $true; owner = $acl.Owner; inherits = -not $acl.AreAccessRulesProtected
+            access = @($acl.Access | ForEach-Object { "$($_.IdentityReference): $($_.AccessControlType) $($_.FileSystemRights)$(if ($_.IsInherited) { ' (inherited)' })" }) } })
 }
 
 # ---------- deep level (elevated) ----------

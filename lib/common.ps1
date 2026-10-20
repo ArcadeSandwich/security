@@ -1,5 +1,10 @@
+$env:PSModulePath = "$env:windir\System32\WindowsPowerShell\v1.0\Modules"   # R1: only Windows' own modules, never a planted one
 # Shared read-only helpers for the probe and the fix packs. Dot-source it; it changes nothing.
 # Kept by Security · Network (SEC-INFRA-2).
+# Programs are called by full path only (R1): netsh from System32, tailscale and multipass from Program Files.
+$script:Netsh = "$env:windir\System32\netsh.exe"
+$script:Tailscale = "$env:ProgramFiles\Tailscale\tailscale.exe"
+$script:Multipass = "$env:ProgramFiles\Multipass\bin\multipass.exe"
 
 function Test-Elevated {
     $id = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -68,7 +73,7 @@ function Get-PackStateDir([string]$packFolderName) {
 # All inbound firewall rules, read with netsh (works without admin rights). Field names are English
 # (netsh prints them in English even when rule names are Norwegian).
 function Get-InboundRulesNetsh {
-    $raw = netsh advfirewall firewall show rule name=all dir=in verbose | Out-String
+    $raw = & $script:Netsh advfirewall firewall show rule name=all dir=in verbose | Out-String
     foreach ($b in ($raw -split "(\r?\n){2,}")) {
         $h = [ordered]@{}
         foreach ($l in ($b -split "\r?\n")) { if ($l -match '^([^:]+?):\s+(.*)$') { $h[$matches[1].Trim()] = $matches[2].Trim() } }

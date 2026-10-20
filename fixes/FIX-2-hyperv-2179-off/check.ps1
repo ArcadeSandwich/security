@@ -1,5 +1,6 @@
 # SEC-FIX-2 check (read-only, no admin rights): no enabled allow rule opens 2179, and every enabled allow rule
 # on 135 is limited to Tailscale.
+$env:PSModulePath = "$env:windir\System32\WindowsPowerShell\v1.0\Modules"   # R1: before any cmdlet that autoloads a module
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 . (Join-Path $root 'lib\common.ps1')

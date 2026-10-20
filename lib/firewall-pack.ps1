@@ -1,3 +1,4 @@
+$env:PSModulePath = "$env:windir\System32\WindowsPowerShell\v1.0\Modules"   # R1: before any cmdlet that autoloads a module
 # Shared engine for firewall fix packs (-DryRun, -Apply, -Undo). Dot-source after common.ps1.
 # Kept by Security · Network.
 #

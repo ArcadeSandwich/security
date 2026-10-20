@@ -6,6 +6,7 @@
 # See README.md. Only -DryRun, -Apply or -Undo.
 [CmdletBinding()]
 param([switch]$DryRun, [switch]$Apply, [switch]$Undo)
+$env:PSModulePath = "$env:windir\System32\WindowsPowerShell\v1.0\Modules"   # R1: before any cmdlet that autoloads a module
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 . (Join-Path $root 'lib\common.ps1'); . (Join-Path $root 'lib\firewall-pack.ps1')

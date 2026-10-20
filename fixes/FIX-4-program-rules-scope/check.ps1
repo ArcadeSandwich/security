@@ -1,5 +1,6 @@
 # SEC-FIX-4 check (read-only, no admin rights): no enabled allow rule for the listed programs has Remote IP Any,
 # and no HNS container DNS rule has Remote IP Any. Run it again after every restart: Windows may recreate HNS rules.
+$env:PSModulePath = "$env:windir\System32\WindowsPowerShell\v1.0\Modules"   # R1: before any cmdlet that autoloads a module
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 . (Join-Path $root 'lib\common.ps1')
