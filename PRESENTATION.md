@@ -31,7 +31,7 @@ Ranks: **high** means someone could get in or something important could be lost;
 | Medium | Several firewall rules let a program accept anyone; safe today only because of how things happen to be set. Windows' container DNS answers the home network. | FIX-4 limits them to Tailscale or the virtual switches |
 | Medium | Two Tailscale rules let every Tailscale device reach every port, including file sharing. | FIX-3 blocks the ports the tailnet doesn't need (it also stops OBS remote control over Tailscale, so say no if you use that) |
 | Medium | The settings files with your keys and codes can be changed by any account on the PC. | FIX-8 limits them to your account (it can't protect them from the chats, which run as you; replacing the keys can) |
-| Medium | The IRL stream dashboards also wait for a sign-in after a power cut. | FIX-9 (being built) |
+| Medium | The IRL stream dashboards also wait for a sign-in after a power cut. | FIX-9 (approved, run with FIX-5) |
 | Low | File sharing doesn't require signing. | FIX-10 (being built) |
 
 ### Being fixed by the chats that own the code
@@ -55,7 +55,7 @@ Ranks: **high** means someone could get in or something important could be lost;
 
 | Medium | Lore the Dungeon Master writes itself is fed back into its rules. | **Ready:** the lore becomes a fenced data block (tested) |
 
-| Medium | Nothing tells you when a service (the game, the Workplace, Ollama, the stream, Minecraft) goes down. | Plan: a small read-only health check that posts "down" and "back" to your desk |
+| Medium | Nothing tells you when a service (the game, the Workplace, Ollama, the stream, Minecraft) goes down. | Being built by the AI Workspace Manager inside the Workplace: it posts "down" and "back" to your desk. Its limit: if the whole PC is down, nothing on it can tell you (that would need the main PC or a phone service later) |
 | Medium | The October Windows updates are not installed. | Your step (Windows Update) |
 
 ### Clean in round 3
@@ -69,16 +69,16 @@ Ranks: **high** means someone could get in or something important could be lost;
 ## Your part, in order (logins and permissions only)
 0. **Most urgent: run FIX-1 and FIX-2 first** (step 2 below). Round 3 found that the home network card has **public IPv6 addresses**, and Remote Desktop and two Hyper-V ports accept anyone. If your router doesn't block incoming IPv6, they can be reached **from the internet**, not only from the Wi-Fi. Also, in your router's settings, turn on "block unsolicited inbound IPv6" (often called the IPv6 firewall). Optional check from outside: ask Network for this PC's IPv6 address in chat (it is never written in a file) and test port 3389 from a phone on mobile data.
 1. **Copy the important data off the D: drive** (it is failing): the 960 GB of server backups and the 531 GB EDITING folder. Then replace the disk.
-2. **Run `C:\server\security\console\Security fixes.cmd`.** Check first that its first lines show the approved-list fingerprint **A94B26B9…** (the same as the desk card Q-SEC-RUN); ignore the commit number. If the fingerprint differs, stop and tell Server.
+2. **Run `C:\server\security\console\Security fixes.cmd`.** Check first that its first lines show the approved-list fingerprint **F526B00D…** (the same as the desk card Q-SEC-RUN); ignore the commit number. If the fingerprint differs, stop and tell Server.
    - **Run 1:** yes only to FIX-0-example (a harmless test). No to the rest.
    - **Run 2:** yes to FIX-1 and FIX-2 first (not while you're connected over Remote Desktop from the home network), then FIX-4, FIX-8, FIX-10 and the deep probe. FIX-3 only if you don't control OBS over Tailscale.
-   - **Later, at a quiet time:** FIX-5. Windows asks for your password in its own box. Straight after, do the restart test in its README; if anything fails, run it again and choose Undo.
+   - **Later, at a quiet time:** FIX-5 and FIX-9 together (the game, the Workplace, Ollama and the two IRL dashboards start at boot). Windows asks for your password in its own box. Straight after, do the restart test in its README; if anything fails, run it again and choose Undo.
 3. **Replace the keys** (steps in FIX-8's README): new key, swap it in, check the game, revoke the old one. Then delete the five old copies FIX-8 lists.
 4. **Main PC, for the Minecraft backups:** turn on OpenSSH Server and a backup user, with port 22 open only to this PC's Tailscale address (steps in `patches\SEC-RES-8`). Space: each backup is about 34 GB, twice a day, and the plugin keeps 20 copies there, so mika-pc needs about **680 GB free**. If it has less, tell us how many copies to keep; nothing existing is deleted.
 5. **Cloudflare DNS for musta.no:** add a TXT record named `_dmarc` with the content `v=DMARC1; p=none; rua=mailto:<an address you read>`. After two weeks with no surprises, change `p=none` to `p=quarantine`.
 6. **Tailscale:** paste the access rule from FIX-7's README (shared people reach only port 7420), after backing up the current one.
 7. **GitHub**, for oak-world, ai-workspace and ai-workspace-app: Settings → Branches (or Rules → Rulesets) → add a rule for `main` → tick **Block force pushes** and **Restrict deletions** → Save. On a free account this may need GitHub Pro; if so, tell Server, and the check on this PC stays the lock.
-8. **Windows Update:** the October updates are not installed (newest is from 9 September). Run "Check for updates" at a quiet time, after FIX-5 so the services come back by themselves after the restart. Consider moving active hours to cover the evening, when the game is used.
+8. **Windows Update:** the October updates are not installed (newest is from 9 September). Run "Check for updates" at a quiet time, after FIX-5, FIX-9 and their restart test, so the services come back by themselves after the update restart. Consider moving active hours to cover the evening, when the game is used.
 9. **Delivery Optimization:** Settings → Windows Update → Advanced options → Delivery Optimization → "Allow downloads from other PCs" off (the part of FIX-10 that needs no script).
 10. **When IRLToolkit is back:** create the private GitHub repository ArcadeSandwich/irl-stream (a login step) after its git-settings patch.
 
