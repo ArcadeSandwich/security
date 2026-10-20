@@ -7,7 +7,7 @@
 
 **Apply BEFORE any `git init` or `git add` in C:\irl-stream.**
 
-Status: draft
+Status: ready-for-owner
 
 ## Apply (IRLToolkit)
 1. In C:\irl-stream: `git apply --unsafe-paths --directory=. C:\server\security\patches\SEC-SECRETS-8\fix.diff`. Or, since there is no repo yet, edit `.gitignore` by hand: change the line `private/` to `private*/`.
