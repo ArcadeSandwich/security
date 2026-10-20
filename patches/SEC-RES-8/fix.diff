@@ -1,8 +1,5 @@
 --- a/plugins/DriveBackupV2/config.yml
 +++ b/plugins/DriveBackupV2/config.yml
-@@ -12 +12 @@
--keep-count: 20
-+keep-count: 4
 @@ -72,4 +72,4 @@
 -  enabled: false
 -  hostname: "ftp.example.com"

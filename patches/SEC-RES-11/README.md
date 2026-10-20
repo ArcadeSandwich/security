@@ -1,6 +1,6 @@
 # SEC-RES-11 Put the IRL stream under git with a private GitHub copy
 
-Status: draft (for Security's review, then ready-for-owner)
+Status: ready-for-owner (only after SEC-SECRETS-8 is done)
 Finding: SEC-RES-11, **medium**. C:\irl-stream has no git at all, although C:\server\CLAUDE.md says it goes on GitHub as irl-stream. The code (dashboard, tools, vm, docs, the start .bat files: about 1 MB) exists in one copy only, on C:.
 Owner: IRLToolkit (offline). Made against the folder as it was on 2026-10-20; the .gitignore holds only `private/`.
 **Do this only after SEC-SECRETS-8 is done**, so no key is ever in the first commit.
