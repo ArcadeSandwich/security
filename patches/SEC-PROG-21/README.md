@@ -1,6 +1,6 @@
 # SEC-PROG-21: the IRL dashboard believes the visitor's address and "https" only from trusted places (low)
 
-Status: draft (waiting for Security's review)
+Status: ready-for-owner (reviewed by Security, 2026-10-20)
 Owner: IRLToolkit (offline). Apply when it returns.
 Made against: C:\irl-stream\dashboard as of 2026-10-20 (server.mjs dated 2026-10-19; features\obsremote.mjs and features\twitchapp.mjs dated 2026-10-18). C:\irl-stream is not a git repository, so the diff paths start at `dashboard/` (apply from C:\irl-stream).
 

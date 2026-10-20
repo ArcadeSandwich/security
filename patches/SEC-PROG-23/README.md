@@ -1,6 +1,6 @@
 # SEC-PROG-23 (MustaHub part): the Twitch login's return address follows the site (low)
 
-Status: draft (waiting for Security's review)
+Status: ready-for-owner (reviewed by Security, 2026-10-20)
 Owner: the MustaHub chats (offline); the Admin hands this folder over.
 Made against: arcade-server f0bb65b with SEC-PROG-19 applied first. The diff touches only `frontend/app/lib/auth.ts`, so it also applies on its own.
 

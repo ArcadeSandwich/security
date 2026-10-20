@@ -1,6 +1,6 @@
 # SEC-PROG-19: the MustaHub bot's dashboard functions check the login (high)
 
-Status: draft (waiting for Security's review)
+Status: ready-for-owner (reviewed by Security, 2026-10-20)
 Owner: the MustaHub chats (offline); the Admin hands this folder over.
 Made against: arcade-server commit f0bb65b (2025-06-07), from the Desktop\arcade-server copy. If the files have changed since, re-check before applying.
 
