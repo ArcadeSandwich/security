@@ -1,6 +1,6 @@
 # SEC-NET-13: the SRT management page only inside the stream VM
 
-Status: draft (Security reviews, then ready-for-owner)
+Status: ready-for-owner
 Owner: IRLToolkit (offline). Applies to: the Multipass VM "stream", file `/opt/srtla-receiver/docker-compose.yml`. The VM is not a git repository, so the diff is against the file itself: dated 2026-10-07 03:40, 1030 bytes, sha256 starting `efa2527d9fb0bffa`.
 
 ## The finding
