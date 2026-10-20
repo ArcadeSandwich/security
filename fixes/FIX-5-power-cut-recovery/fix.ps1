@@ -18,7 +18,7 @@ function Fail($what) { throw "FIX-5: $what" }
 # because -Undo registers them elevated. There is no fallback to a folder a normal chat could write.
 function StateDir {
   if (-not (Get-Command Get-PackStateDir -ErrorAction SilentlyContinue)) { Fail 'Get-PackStateDir is missing from lib\common.ps1: nothing done.' }
-  Get-PackStateDir 'SEC-FIX-5'
+  Get-PackStateDir 'FIX-5-power-cut-recovery'
 }
 function BackupFile($dir, $name) { Join-Path $dir (($name -replace '[^A-Za-z0-9]+', '-') + '.xml') }
 
