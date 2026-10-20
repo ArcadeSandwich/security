@@ -11,6 +11,10 @@ Last updated: 2026-10-20, night (round 2 finished, round 3 and the patches under
   - a test of the front door now runs with the game's tests;
   - the Work page, the Workplace and the old Work page are behind the front door, for you only;
   - the Workplace's port clash is fixed (Workplace 3001, old Work 3004);
+  - the Workplace's pages now send the full set of safety headers, and the AI Workspace app's Workplace panel can reach only the Workplace page and adds your Lab code only there;
+  - Finn Scout's new routes for the laptop need your key and keep their logs clean;
+  - the Playbook's download tools can't be pointed back at this PC, and videos come only from YouTube and Instagram;
+  - the game refuses requests that change things when they come from another site;
   - players' bug reports now wait for an approval before the job runner builds them, approvals come only through the protected Workplace page, and every request is logged;
   - the job runner pushes only the exact version it checked, and refuses merge commits;
   - the background OpenCode service stops itself after 15 quiet minutes;
