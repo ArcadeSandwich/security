@@ -1,6 +1,6 @@
 # SEC-FIX-4: limit the wide program rules and the container DNS rules
 
-Status: draft
+Status: reviewed-security
 
 - **Findings:** W-10 and W-2 (medium), and SEC-NET-15 (medium).
   - W-10 and W-2: program rules allow any address for ollama.exe, obs64.exe (OBS), obs-browser-page.exe, node.exe, bun.exe and bunx.exe. Today they are safe only because those programs listen narrowly, or because the home network is Public.
@@ -13,6 +13,7 @@ Status: draft
   - Port rules such as "Cadeys World Rule" (25565): Minecraft is public on purpose.
 - **Risk:** low.
   - A program in the list can no longer take connections from the home network. None does today.
+  - **Side effect over Tailscale: none.** The rules keep Tailscale addresses, so a tailnet device that uses node (the Prompt generator on 7420), OBS or bun today keeps working. Only the home network and the internet lose access, and none of the six programs listens there today (NET-P1, 2026-10-20). If a new program of these six later serves the home network on purpose, it would need its own rule.
   - When Windows asks again for a new program, answer only for Private networks.
   - If the container DNS breaks for the VM, run `-Undo`.
 - **After a restart:** Windows may recreate the HNS rules with Any. Run `check.ps1` after each restart; if it fails, run the pack again.

@@ -1,6 +1,6 @@
 # SEC-FIX-2: Hyper-V remote console rule off, Hyper-V management from Tailscale only
 
-Status: draft
+Status: reviewed-security
 
 - **Findings:** W-8 (high) and SEC-NET-16 (medium).
   - W-8: the rule "Hyper-V (REMOTE_DESKTOP_TCP_IN)" allows TCP 2179 (the Hyper-V VM console, vmms) from any address on every profile, and vmms listens on every card, so the home network can reach it.
