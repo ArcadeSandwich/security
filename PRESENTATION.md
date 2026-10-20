@@ -30,7 +30,10 @@ Last updated: 2026-10-20 (round 2 under way).
 | High | **Hyper-V's remote console port (2179) is open to the home network the same way.** | Network's port check | Fix pack being prepared (SEC-FIX-2) |
 | High | **The D: drive is failing and holds the only copy of 960 GB of server backups and 531 GB of editing files.** The newest game backup is from 29 September. | Resilience's disk check (warning, 17 disk errors) | Your step: copy the data off and replace the disk; then the nightly backup (BACKUP-1) |
 | High | **After a power cut nothing comes back until someone signs in to Windows.** | Resilience's restart check | Fix pack being prepared (SEC-FIX-5) |
-| Medium | **Nine plain-text copies of your AI keys and Lab code** sit in old folders. | Secrets' scan | Your steps: delete the old copies, then replace the keys; pack SEC-FIX-8 helps |
+| High | **The Control chat can change any file and push it to GitHub;** only a written rule keeps it to the tracker files. | Agents | Sent to the Logging chat (Work checks Control's changes before they are pushed) |
+| High | **The IRL stream's git settings would publish MustaHub's passwords and keys** the first time that folder is put on GitHub (`private-musta` is not excluded). Nothing has leaked; there is no git there yet. | Secrets | Sent to the IRLToolkit chat: one line in .gitignore before any git setup |
+| Medium | **Six plain-text copies of your AI keys and Lab code** (the live one, a .bak, two in backups, two in old work folders). | Secrets' scan (corrected from nine) | Your steps: delete the five old copies, then replace the keys; pack SEC-FIX-8 helps |
+| Medium | A guest's bug report can become a job the job runner builds without anyone reading it. | Agents | Sent to the Logging chat |
 | Medium | Some firewall rules let a program accept anyone; today safe only because of how the programs or the network are set. | Network | Fix pack SEC-FIX-4 |
 | Medium | Two Tailscale rules let every Tailscale device reach every port. | Network | Fix pack SEC-FIX-3 |
 | Medium | The stream's virtual machine sits directly on the home network, outside the Windows firewall. | Network (round 2) | Being checked (SEC-NET-8) |
