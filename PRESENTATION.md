@@ -71,7 +71,10 @@ Last updated: 2026-10-20 (round 2 under way).
 1. **Copy the important data off the D: drive** (it is failing): the 960 GB of server backups and the 531 GB EDITING folder. Then replace the disk.
 2. **Give Minecraft a second backup place** (SEC-RES-8), with SMP Main: DriveBackupV2 saves only to D:. Turn on a cloud target in its config, or copy to the main PC.
 3. **Answer: where does arcade-server (MustaHub) run, and is it what serves musta.no?** (SEC-PROG-19, desk question Q-ARCADE-DEPLOYED). If yes, pass the fix to the MustaHub chats: every admin and overlay function must check the session and the admin role. Until then, keep the Cloudflare login on musta.no.
-4. **Run `C:\server\security\console\Security fixes.cmd`** once, after Server marks the packs ready. Windows asks once; you answer yes or no per fix. Suggested order: Remote Desktop (FIX-1), Hyper-V (FIX-2), power-cut recovery (FIX-5, you type your Windows password in Windows' own box), the Tailscale blocks (FIX-3), the program rules (FIX-4), the key-file permissions (FIX-8).
+4. **Run `C:\server\security\console\Security fixes.cmd`** (the packs are approved and ready). First check that the console's first lines show commit **47dd54a** and approved-list fingerprint **54010EF8…** (the same as the desk card Q-SEC-RUN). If either differs, stop and tell Server.
+   - **Run 1:** answer yes only to FIX-0-example (a harmless test that proves the protected copy works). No to the rest.
+   - **Run 2:** yes to FIX-1 (Remote Desktop to Tailscale only; don't do this while connected over Remote Desktop from the home network), FIX-2 (Hyper-V), FIX-4 (program rules) and FIX-8 (key-file permissions), and yes to the deep probe. FIX-3 (Tailscale blocks) only if you don't control OBS from a phone or laptop over Tailscale.
+   - **Later, at a quiet time:** FIX-5 (power-cut recovery). Windows asks for your password in its own box. Straight after, do the restart test in its README; if anything fails, run it again and choose Undo.
 5. **Replace the keys** (steps in FIX-8's README and HB-security-secrets): new key, swap it in, check the game, revoke the old one. Then delete the five old copies FIX-8 lists.
 6. **Cloudflare DNS for musta.no** (SEC-NET-14): add a TXT record.
    - Name: `_dmarc`
