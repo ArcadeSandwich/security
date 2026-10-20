@@ -3,6 +3,16 @@
 # Never reads either file's content; prints names, dates and permission entries only.
 [CmdletBinding()]
 param([switch]$DryRun, [switch]$Apply, [switch]$Undo)
+$env:PSModulePath = "$env:windir\System32\WindowsPowerShell\v1.0\Modules"   # R1: first statement after param(); only Windows' own modules load
+# R1: drop any copy of these modules already loaded in this process, then load Windows' own by full path.
+foreach ($m in 'ScheduledTasks', 'Microsoft.PowerShell.Security', 'Microsoft.PowerShell.Management', 'Microsoft.PowerShell.Utility') {
+  Microsoft.PowerShell.Core\Get-Module $m | Microsoft.PowerShell.Core\Remove-Module -Force -ErrorAction SilentlyContinue
+  Microsoft.PowerShell.Core\Import-Module "$env:windir\System32\WindowsPowerShell\v1.0\Modules\$m" -Force -ErrorAction Stop
+}
+foreach ($c in 'Get-ScheduledTask', 'Get-Acl', 'Get-Item', 'Get-Content', 'Test-Path', 'Join-Path', 'Split-Path', 'Invoke-WebRequest', 'ConvertFrom-Json') {   # no function or alias may stand in for them
+  foreach ($k in 'function', 'alias') { if (Microsoft.PowerShell.Management\Test-Path "${k}:$c") { Microsoft.PowerShell.Management\Remove-Item "${k}:$c" -Force } }
+}
+$Icacls = "$env:windir\System32\icacls.exe"   # R1: full path, never a look-up
 $ErrorActionPreference = 'Stop'
 
 $Folder  = 'C:\server\oak-world\oak-world'
@@ -16,7 +26,7 @@ $Copies  = @(
   'C:\server\oak-world\dm-wt\oak-config.json',
   'C:\server\oak-world\jobs\_main\oak-config.json'
 )
-$Remove  = @('*S-1-5-32-545', '*S-1-5-11')  # BUILTIN\Users, Authenticated Users
+$Remove  = @('*S-1-5-32-545', '*S-1-5-11', '*S-1-1-0')  # BUILTIN\Users, Authenticated Users, Everyone
 
 if ((@($DryRun, $Apply, $Undo) | ? { $_ }).Count -ne 1) { throw 'Use exactly one of -DryRun, -Apply, -Undo.' }
 . (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'lib\common.ps1')
@@ -42,7 +52,7 @@ if ($DryRun) {
     "File: $Folder\$n"
     '  now:'; Show-Acl "$Folder\$n"
     "  would: save these permissions to the pack's admin-only state folder (C:\ProgramData\SecurityConsole\state\FIX-8-oak-config-permissions\$n.acl),"
-    "         give $acct Modify, stop inheriting (keeping the entries), and remove BUILTIN\Users and Authenticated Users."
+    "         give $acct Modify, stop inheriting (keeping the entries), and remove BUILTIN\Users, Authenticated Users and Everyone."
     ''
   }
   'Unknown account SIDs already on the files are left as they are (see README).'
@@ -65,9 +75,9 @@ if ($Undo) {
     if (-not (Test-AclSave $s $n)) { Fail "the saved permissions for $n name another file. Nothing undone." }
   }
   foreach ($n in $Names) {
-    & icacls $Folder /restore (AclSave $n) | Out-Null
+    & $Icacls $Folder /restore (AclSave $n) | Out-Null
     if ($LASTEXITCODE -ne 0) { Fail "icacls /restore failed for $n ($LASTEXITCODE)." }
-    & icacls "$Folder\$n" /inheritance:e | Out-Null
+    & $Icacls "$Folder\$n" /inheritance:e | Out-Null
     "restored: $n"
   }
   'Undo done: the old permissions are back. Run check.ps1 -Undone.'
@@ -81,7 +91,7 @@ foreach ($n in $Names) {
     if (-not (Test-AclSave $s $n)) { Fail "the saved permissions for $n are not for $n alone. Nothing changed." }
     "saved permissions kept (FIX-8 may already be applied): $s"
   } else {
-    & icacls "$Folder\$n" /save $s | Out-Null
+    & $Icacls "$Folder\$n" /save $s | Out-Null
     if ($LASTEXITCODE -ne 0 -or -not (Test-AclSave $s $n)) { Fail "could not save the permissions of ${n}: nothing changed." }
     "permissions saved: $s"
   }
@@ -89,11 +99,11 @@ foreach ($n in $Names) {
 $acct = Get-Account
 foreach ($n in $Names) {
   $f = "$Folder\$n"
-  & icacls $f /grant "${acct}:(M)" | Out-Null       # first, so the game never loses access
+  & $Icacls $f /grant "${acct}:(M)" | Out-Null       # first, so the game never loses access
   if ($LASTEXITCODE -ne 0) { Fail "could not grant $acct on $n. Run -Undo." }
-  & icacls $f /inheritance:d | Out-Null
+  & $Icacls $f /inheritance:d | Out-Null
   if ($LASTEXITCODE -ne 0) { Fail "could not stop inheritance on $n. Run -Undo." }
-  foreach ($g in $Remove) { & icacls $f /remove:g $g | Out-Null; if ($LASTEXITCODE -ne 0) { Fail "could not remove $g from $n. Run -Undo." } }
+  foreach ($g in $Remove) { & $Icacls $f /remove:g $g | Out-Null; if ($LASTEXITCODE -ne 0) { Fail "could not remove $g from $n. Run -Undo." } }
   "applied: $n"
 }
 'applied: both files are limited to the Admin''s account, SYSTEM and Administrators. Run check.ps1.'

@@ -2,6 +2,15 @@
 # -Undone checks that Undo brought back the saved permissions instead.
 [CmdletBinding()]
 param([switch]$Undone)
+$env:PSModulePath = "$env:windir\System32\WindowsPowerShell\v1.0\Modules"   # R1: first statement after param(); only Windows' own modules load
+# R1: drop any copy of these modules already loaded in this process, then load Windows' own by full path.
+foreach ($m in 'ScheduledTasks', 'Microsoft.PowerShell.Security', 'Microsoft.PowerShell.Management', 'Microsoft.PowerShell.Utility') {
+  Microsoft.PowerShell.Core\Get-Module $m | Microsoft.PowerShell.Core\Remove-Module -Force -ErrorAction SilentlyContinue
+  Microsoft.PowerShell.Core\Import-Module "$env:windir\System32\WindowsPowerShell\v1.0\Modules\$m" -Force -ErrorAction Stop
+}
+foreach ($c in 'Get-ScheduledTask', 'Get-Acl', 'Get-Item', 'Get-Content', 'Test-Path', 'Join-Path', 'Split-Path', 'Invoke-WebRequest', 'ConvertFrom-Json') {   # no function or alias may stand in for them
+  foreach ($k in 'function', 'alias') { if (Microsoft.PowerShell.Management\Test-Path "${k}:$c") { Microsoft.PowerShell.Management\Remove-Item "${k}:$c" -Force } }
+}
 $ErrorActionPreference = 'Stop'
 
 $Folder  = 'C:\server\oak-world\oak-world'
