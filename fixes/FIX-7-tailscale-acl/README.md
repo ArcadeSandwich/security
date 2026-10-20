@@ -25,14 +25,15 @@ Status: draft
   ],
   "hosts": {},
   "tests": [
-    { "src": "autogroup:shared", "accept": ["cadeyserver:7420"], "deny": ["cadeyserver:3389", "cadeyserver:445", "cadeyserver:11434"] }
+    { "src": "autogroup:shared", "accept": ["cadeyserver:7420"], "deny": ["cadeyserver:443", "cadeyserver:3389", "cadeyserver:445", "cadeyserver:11434"] }
   ]
 }
 ```
 
 Notes:
 - `cadeyserver` in `dst` is the machine's name on the tailnet (MagicDNS). If the admin console calls it something else, use that name, or the address `100.107.176.17`.
-- `tests` makes Tailscale refuse to save if a shared person could reach 3389, 445 or 11434.
+- `tests` makes Tailscale refuse to save if a shared person could reach 443 (LISTEN, through `tailscale serve`), 3389, 445 or 11434.
+- **Apply FIX-7 before turning on `tailscale serve` for LISTEN (LISTEN-2), if anyone is shared in by then.** Serve publishes https on port 443 to every device the policy allows.
 - Undo: paste the backup from step 2 and save.
 
 Source: Tailscale, "Manage permissions using ACLs" (https://tailscale.com/kb/1018/acls) and "Sharing your nodes" (https://tailscale.com/kb/1084/sharing): shared users appear as `autogroup:shared`.
