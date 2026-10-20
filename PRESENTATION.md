@@ -13,7 +13,11 @@ Last updated: 2026-10-20, night (round 2 finished, round 3 and the patches under
   - the Workplace's port clash is fixed (Workplace 3001, old Work 3004);
   - players' bug reports now wait for an approval before the job runner builds them, approvals come only through the protected Workplace page, and every request is logged;
   - the job runner pushes only the exact version it checked, and refuses merge commits;
-  - the background OpenCode service stops itself after 15 quiet minutes.
+  - the background OpenCode service stops itself after 15 quiet minutes;
+  - the Control chat and the Plan boxes can only read and list files, can't read your key files, and their old chats are retired;
+  - the down warning in the Workplace is live (a red line on your desk screen);
+  - the AI Workspace app has Electron's safety switches on (checked again on its next release).
+- **Three fixes for the Dungeon Master's prompts** are ready for the DM chat: the lore and the story summary it writes itself are now fenced as data, so a planted line can't act as a rule (161 tests pass).
 - **The git history of every repository was scanned: no keys anywhere.** All four GitHub repositories are private.
 - **The security tool folder `C:\server\security` is built and approved by Server:** a read-only probe of the PC, seven fix packs and one launcher. Everything that needs administrator rights waits for your one Windows prompt.
   - It was hardened after two reviews: the launcher runs only files whose fingerprints Server approved, from a protected copy; undo records sit where only administrators can change them; and no script can be tricked into loading a fake PowerShell module or program (tested by planting fakes).
