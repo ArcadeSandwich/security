@@ -1,0 +1,94 @@
+diff --git a/tools/check.js b/tools/check.js
+index 1d6d3d7..30ed53c 100644
+--- a/tools/check.js
++++ b/tools/check.js
+@@ -16,6 +16,12 @@ const ROOT = path.resolve(__dirname, '..');
+ const OAK_CONFIG = 'C:\\oak-world\\oak-world\\oak-config.json';
+ const SECRET_ENV = ['GEMINI_API_KEY', 'GROQ_API_KEY'];
+ const OAK_ACCESS = 'C:\\oak-world\\oak-world\\access.json';
++// SEC-SECRETS-10: more live values, from secret files outside the game. Whole values of MIN_SECRET+ characters only.
++// The IRL stream's private*\ folders (IRLToolkit's yes needed before this is applied) and arcade-server's .env.
++const EXTRA_SECRET_SOURCES = [
++  { label: 'irl', dir: 'C:\\irl-stream', dirPattern: /^private/i },
++  { label: 'arcade-server', file: 'C:\\Users\\cadey\\Desktop\\arcade-server\\.env' },
++];
+ const SECRET_KEY_RE = /key|token|secret|code/i;
+ const MIN_SECRET = 8;        // live values this long or longer are matched anywhere in a line
+ const MIN_SHORT_SECRET = 6;  // shorter live values (6-7 chars, e.g. labCode) are matched only as a whole word
+@@ -57,6 +63,57 @@ function readUserEnv(name) {
+   return '';
+ }
+ 
++// A plain address (no user, password or query, at most one path segment) is not a secret on its own, e.g.
++// rtmp://127.0.0.1:1935/live. One with a deeper path is kept: stream URLs carry their key there (.../app/<key>).
++const PLAIN_URL = /^[a-z][a-z0-9+.-]*:\/\/[^\s@?#/]*(\/[^\s@?#/]*)?\/?$/i;
++function extraValue(v) {
++  const s = String(v).trim().replace(/^(['"])(.*)\1$/, '$2');
++  if (s.length < MIN_SECRET || /^(true|false|null|\d+(\.\d+)?)$/i.test(s) || PLAIN_URL.test(s)) return null;
++  return s;
++}
++
++// Reads one secret file into found[] as { name, value }. name is "<label> <file>: <key>", never the value.
++// .json: every string; .env: every KEY=value; anything else: every line. Errors never quote the file.
++function readSecretFile(abs, label, found, notes) {
++  let text;
++  try { text = fs.readFileSync(abs, 'utf8').replace(/^﻿/, ''); } catch (e) { notes.push(`${label} ${path.basename(abs)} not readable, its values were not checked`); return; }
++  const base = path.basename(abs);
++  const add = (key, v) => { const s = extraValue(v); if (s) found.push({ name: `${label} ${base}: ${key}`, value: s }); };
++  if (/\.json$/i.test(base)) {
++    let obj;
++    try { obj = JSON.parse(text); } catch (e) { notes.push(`${label} ${base} could not be parsed, its values were not checked`); return; }
++    const walk = (v, kp) => {
++      if (typeof v === 'string') add(kp || 'value', v);
++      else if (Array.isArray(v)) v.forEach((x, i) => walk(x, `${kp}[${i}]`));
++      else if (v && typeof v === 'object') for (const k of Object.keys(v)) walk(v[k], kp ? `${kp}.${k}` : k);
++    };
++    walk(obj, '');
++  } else if (/^\.env/i.test(base) || /\.env$/i.test(base)) {
++    for (const line of text.split(/\r?\n/)) {
++      const m = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_.-]*)\s*=\s*(.*)$/.exec(line);
++      if (m && !/^\s*#/.test(line)) add(m[1], m[2].replace(/\s+#.*$/, ''));
++    }
++  } else {
++    text.split(/\r?\n/).forEach((line, i) => add(`line ${i + 1}`, line));
++  }
++}
++
++// Loads the values of EXTRA_SECRET_SOURCES (or the given sources, for tests). Returns { found, notes }.
++function loadExtraSecrets(sources) {
++  const found = [];
++  const notes = [];
++  for (const src of sources || EXTRA_SECRET_SOURCES) {
++    if (src.file) { if (fs.existsSync(src.file)) readSecretFile(src.file, src.label, found, notes); continue; }
++    let dirs;
++    try { dirs = fs.readdirSync(src.dir, { withFileTypes: true }); } catch (e) { continue; } // folder not on this PC
++    for (const d of dirs) {
++      if (!d.isDirectory() || !src.dirPattern.test(d.name)) continue;
++      for (const f of walkFiles(path.join(src.dir, d.name), [])) readSecretFile(f, `${src.label} ${d.name}`, found, notes);
++    }
++  }
++  return { found, notes };
++}
++
+ let liveCache = null;
+ // Returns { secrets: [{name, value, wholeWord, re}], notes: [string] }. Never print `value`.
+ function loadLiveSecrets() {
+@@ -105,6 +162,9 @@ function loadLiveSecrets() {
+     const b = readUserEnv(name);
+     if (b && b !== a) found.push({ name: `env ${name}`, value: b });
+   }
++  const extra = loadExtraSecrets();
++  found.push(...extra.found);
++  notes.push(...extra.notes);
+   const seen = new Set();
+   const secrets = [];
+   for (const f of found) {
+@@ -495,7 +555,7 @@ function main(argv) {
+ module.exports = {
+   ROOT, PATTERNS, KINDS, STATUSES, RISKS, KIND_FIELDS, COMMON_FIELDS, FIELD_ORDER, ENTRY_DIRS,
+   ORIGINS, RESULTS, REPORT_ORDER, validateReport, listReports,
+-  loadLiveSecrets, redact, scanText, scanFile, scanName, walkFiles, relOf,
++  loadLiveSecrets, loadExtraSecrets, redact, scanText, scanFile, scanName, walkFiles, relOf,
+   validateEntry, listEntries, checkEntry, today, validDate,
+ };
+ 

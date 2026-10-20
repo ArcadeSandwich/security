@@ -1,0 +1,7 @@
+diff --git a/.gitignore b/.gitignore
+index 1f6786d..86ad1f5 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -1 +1 @@
+-private/
++private*/
