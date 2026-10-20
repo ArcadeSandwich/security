@@ -44,7 +44,8 @@ Ranks: **high** means someone could get in or something important could be lost;
 | High | **The Control chat could change any file and push to GitHub, and the Plan boxes had full tools while reading players' text.** | **Fixed and rechecked for both** (everything blocked except reading and listing, key files blocked, old chat retired). Logging is also hardening the secret check on Control's tracker rows (it missed encoded or key-shaped text) |
 | High (less likely) | The MAIN and Absurdity boxes on the Work page keep full tools. | **Your choice** (desk question Q-AG17-BOXES) |
 | Medium | The game's buttons that change things (saves, photos, voice) trusted your login cookie alone; another page on an arcadesandwich.com subdomain could have pressed them for you. | **Fixed and rechecked**: the game now refuses such requests from other sites |
-| Low | The AI Workspace app has Electron's safety switches ("fuses") off. | With the AI Workspace Manager |
+| Low | The AI Workspace app has Electron's safety switches ("fuses") off. | **Fixed** (checked again on its next release) |
+| Medium | The Playbook's download tool could be tricked, with an unusual way of writing an address, into fetching from this PC itself (for example Ollama) and saving the answer. Only Server runs the tool. | Server is fixing it; until then it refuses such addresses |
 | Medium | The AI Workspace app's link handling and update check have gaps. | With the AI Workspace Manager |
 | Medium | The game's voice package uses an image library with known holes; no fixed version exists yet, and visitors can't reach it. | Audio upgrades it when a fix comes out |
 
