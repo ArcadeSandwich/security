@@ -6,9 +6,7 @@ param([switch]$DryRun, [switch]$Apply, [switch]$Undo)
 $ErrorActionPreference = 'Stop'
 
 $File    = 'C:\server\oak-world\oak-world\oak-config.json'
-$Backup  = 'C:\server\security\reports\FIX-8-backup'
-$AclSave = Join-Path $Backup 'oak-config.acl'
-$Task    = 'Startup - Oak World Game'     # the game, Work/Workplace and start-live.bat all run as this task's account
+$Task   = 'Startup - Oak World Game'     # the game, Work/Workplace and start-live.bat all run as this task's account
 # Copies holding the same live values (SEC-SECRETS-5a, 2026-10-20). Only listed here; the Admin deletes them.
 $Copies  = @(
   'C:\server\oak-world\oak-world\oak-config.json.bak',
@@ -20,8 +18,21 @@ $Copies  = @(
 $Remove  = @('*S-1-5-32-545', '*S-1-5-11')  # BUILTIN\Users, Authenticated Users
 
 if ((@($DryRun, $Apply, $Undo) | ? { $_ }).Count -ne 1) { throw 'Use exactly one of -DryRun, -Apply, -Undo.' }
+. (Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'lib\common.ps1')
 
-function Test-Admin { ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole('Administrators') }
+function Fail($what) { throw "FIX-8: $what" }
+# The saved permissions live only in the Administrators-and-SYSTEM folder (Get-PackStateDir, lib\common.ps1),
+# because -Undo applies them elevated. There is no fallback to a folder a normal chat could write.
+function AclSave {
+  if (-not (Get-Command Get-PackStateDir -ErrorAction SilentlyContinue)) { Fail 'Get-PackStateDir is missing from lib\common.ps1: nothing done.' }
+  Join-Path (Get-PackStateDir 'SEC-FIX-8') 'oak-config.acl'
+}
+# An icacls /save file is pairs of lines: a file name, then its permissions. Ours must name oak-config.json only.
+function Test-AclSave($f) {
+  $lines = @(Get-Content -LiteralPath $f -Encoding Unicode | ? { $_.Trim() })   # icacls writes UTF-16 without a BOM
+  ($lines.Count -eq 2) -and ($lines[0].Trim() -eq 'oak-config.json') -and ($lines[1] -match '^D:')
+}
+function Test-Admin { Test-Elevated }
 function Get-Account { "$env:COMPUTERNAME\$((Get-ScheduledTask -TaskName $Task -TaskPath '\').Principal.UserId)" }
 function Show-Acl($p) { (Get-Acl -LiteralPath $p).Access | % { "    $($_.IdentityReference) $($_.AccessControlType) $($_.FileSystemRights)$(if ($_.IsInherited) { ' (inherited)' })" } }
 
@@ -29,7 +40,7 @@ if ($DryRun) {
   $acct = Get-Account
   "File: $File"
   '  now:'; Show-Acl $File
-  "  would: save these permissions to $AclSave, stop inheriting (keeping the entries as they are),"
+  "  would: save these permissions to the pack's admin-only state folder (C:\ProgramData\SecurityConsole\state\SEC-FIX-8), stop inheriting (keeping the entries as they are),"
   "         remove BUILTIN\Users and Authenticated Users, and give $acct Modify."
   '  Unknown account SIDs already on the file are left as they are (see README).'
   ''
@@ -44,8 +55,11 @@ if ($DryRun) {
 
 if (-not (Test-Admin)) { throw 'Needs administrator rights: run it from console\Security fixes.cmd.' }
 
+$AclSave = AclSave
+
 if ($Undo) {
-  if (-not (Test-Path -LiteralPath $AclSave)) { throw "No saved permissions ($AclSave). Nothing undone." }
+  if (-not (Test-Path -LiteralPath $AclSave)) { Fail "no saved permissions ($AclSave). Nothing undone." }
+  if (-not (Test-AclSave $AclSave)) { Fail 'the saved permissions file names something other than oak-config.json. Nothing undone.' }
   & icacls (Split-Path $File) /restore $AclSave | Out-Null
   if ($LASTEXITCODE -ne 0) { throw "icacls /restore failed ($LASTEXITCODE)." }
   & icacls $File /inheritance:e | Out-Null
@@ -54,11 +68,12 @@ if ($Undo) {
 }
 
 # -Apply
-if (-not (Test-Path $Backup)) { New-Item -ItemType Directory $Backup | Out-Null }
-if (Test-Path -LiteralPath $AclSave) { "saved permissions kept (FIX-8 may already be applied): $AclSave" }
-else {
+if (Test-Path -LiteralPath $AclSave) {
+  if (-not (Test-AclSave $AclSave)) { Fail 'the saved permissions file is not for oak-config.json alone. Nothing changed.' }
+  "saved permissions kept (FIX-8 may already be applied): $AclSave"
+} else {
   & icacls $File /save $AclSave | Out-Null
-  if ($LASTEXITCODE -ne 0) { throw 'Could not save the current permissions: nothing changed.' }
+  if ($LASTEXITCODE -ne 0 -or -not (Test-AclSave $AclSave)) { Fail 'could not save the current permissions: nothing changed.' }
   "permissions saved: $AclSave"
 }
 $acct = Get-Account
