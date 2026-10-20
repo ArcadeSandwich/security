@@ -1,6 +1,6 @@
 # SEC-FIX-2: Hyper-V remote console rule off
 
-Status: draft
+Status: reviewed-security
 
 - **Finding:** W-8 (high). The rule "Hyper-V (REMOTE_DESKTOP_TCP_IN)" allows TCP 2179 (the Hyper-V VM console, vmms) from any address on every profile, and vmms listens on every card, so the home network can reach it.
 - **What it does:** switches off every enabled inbound allow rule on port 2179. VM consoles still work on this PC itself (Hyper-V Manager connects locally). Multipass and the stream VM don't use this port.
