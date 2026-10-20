@@ -1,0 +1,3 @@
+# Approved scripts: "<path from the security folder> <SHA-256>", one per line, e.g. "fixes/FIX-1-x/fix.ps1 <hash>".
+# ONLY Server writes this file, after its review. The console refuses any file that runs elevated (pack scripts, lib, probe, console\apply.ps1 and common.ps1) not listed
+# here with a matching hash. FIX-0-example is not listed on purpose: it is a test pack and must never run here.
