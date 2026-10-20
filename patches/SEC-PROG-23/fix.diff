@@ -1,0 +1,14 @@
+diff --git a/frontend/app/lib/auth.ts b/frontend/app/lib/auth.ts
+index cc51f78..52777dc 100644
+--- a/frontend/app/lib/auth.ts
++++ b/frontend/app/lib/auth.ts
+@@ -14,7 +14,8 @@ export const auth = betterAuth({
+     twitch: {
+       clientId: env.VITE_TWITCH_CLIENT_ID,
+       clientSecret: env.TWITCH_CLIENT_SECRET,
+-      redirectURI: "http://localhost:8080/api/auth/callback/twitch",
++      // SEC-PROG-23: the callback follows the deployed address (VITE_DEPLOY_URL), not a fixed http://localhost.
++      redirectURI: new URL("/api/auth/callback/twitch", env.VITE_DEPLOY_URL).toString(),
+     },
+   },
+   baseURL: env.VITE_DEPLOY_URL,

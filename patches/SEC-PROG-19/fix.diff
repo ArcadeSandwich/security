@@ -1,0 +1,273 @@
+diff --git a/frontend/app/lib/admin-check.test.ts b/frontend/app/lib/admin-check.test.ts
+new file mode 100644
+index 0000000..6979935
+--- /dev/null
++++ b/frontend/app/lib/admin-check.test.ts
+@@ -0,0 +1,52 @@
++// SEC-PROG-19: run with `bun test frontend/app/lib/admin-check.test.ts` from the repository root. Needs no .env and no database.
++import { describe, expect, test } from "bun:test";
++import { readFileSync } from "node:fs";
++import { join } from "node:path";
++import { isAdminSession, twitchAccountId } from "./admin-check";
++
++const MAIN = "111";
++const listed = async (id: string) => id === "222";
++const session = (accountId?: string, provider = "twitch") => ({
++  user: { id: "u1" },
++  accounts: accountId ? [{ provider, accountId }] : [],
++});
++
++describe("isAdminSession", () => {
++  test("no session is not an admin", async () => {
++    expect(await isAdminSession(undefined, MAIN, listed)).toBe(false);
++    expect(await isAdminSession(null, MAIN, listed)).toBe(false);
++  });
++  test("a session without a Twitch account is not an admin", async () => {
++    expect(await isAdminSession(session("111", "github"), MAIN, listed)).toBe(false);
++    expect(await isAdminSession(session(), MAIN, listed)).toBe(false);
++  });
++  test("the main admin and a listed admin are admins", async () => {
++    expect(await isAdminSession(session("111"), MAIN, listed)).toBe(true);
++    expect(await isAdminSession(session("222"), MAIN, listed)).toBe(true);
++  });
++  test("any other signed-in Twitch user is not an admin", async () => {
++    expect(await isAdminSession(session("333"), MAIN, listed)).toBe(false);
++  });
++  test("an empty main-admin setting matches nobody", async () => {
++    expect(await isAdminSession(session(""), "", listed)).toBe(false);
++    expect(twitchAccountId(session(""))).toBe(null);
++  });
++});
++
++// Every server function in the two services runs behind adminMiddleware, except getOverlayById (the public OBS overlay page).
++describe("every dashboard server function checks the admin", () => {
++  const PUBLIC = new Set(["getOverlayById"]);
++  for (const file of ["services/twitch-users.ts", "services/clips.ts"]) {
++    const src = readFileSync(join(import.meta.dir, "..", file), "utf8");
++    const fns = [...src.matchAll(/export const (\w+) = createServerFn\(/g)];
++    test(`${file} has server functions`, () => expect(fns.length).toBeGreaterThan(0));
++    for (const m of fns) {
++      const name = m[1];
++      const rest = src.slice(m.index ?? 0);
++      const chain = rest.slice(0, rest.indexOf(".handler("));
++      test(`${name} ${PUBLIC.has(name) ? "stays public" : "uses adminMiddleware"}`, () => {
++        expect(chain.includes(".middleware([adminMiddleware])")).toBe(!PUBLIC.has(name));
++      });
++    }
++  }
++});
+diff --git a/frontend/app/lib/admin-check.ts b/frontend/app/lib/admin-check.ts
+new file mode 100644
+index 0000000..b93503e
+--- /dev/null
++++ b/frontend/app/lib/admin-check.ts
+@@ -0,0 +1,27 @@
++// SEC-PROG-19: who may use the dashboard's server functions. Kept free of imports so it can be tested on its own.
++export type SessionLike =
++  | {
++      user?: { id?: string } | null;
++      accounts?: { provider?: string; accountId?: string }[] | null;
++    }
++  | null
++  | undefined;
++
++/** The signed-in user's Twitch account id, or null. */
++export function twitchAccountId(session: SessionLike): string | null {
++  if (!session?.user?.id || !Array.isArray(session.accounts)) return null;
++  const twitch = session.accounts.find((a) => a?.provider === "twitch");
++  return twitch?.accountId ? String(twitch.accountId) : null;
++}
++
++/** True for the main admin (TWITCH_ADMIN_USER) or a Twitch id in the admins table. */
++export async function isAdminSession(
++  session: SessionLike,
++  mainAdminId: string | undefined,
++  isListedAdmin: (twitchUserId: string) => Promise<boolean>,
++): Promise<boolean> {
++  const id = twitchAccountId(session);
++  if (!id) return false;
++  if (mainAdminId && id === mainAdminId) return true;
++  return await isListedAdmin(id);
++}
+diff --git a/frontend/app/lib/auth-server.ts b/frontend/app/lib/auth-server.ts
+index 215ba1f..fadb382 100644
+--- a/frontend/app/lib/auth-server.ts
++++ b/frontend/app/lib/auth-server.ts
+@@ -1,7 +1,8 @@
+ import { db } from "@/db";
+ import { env } from "@/env";
+ import { createMiddleware, createServerFn } from "@tanstack/react-start";
+-import { getHeaders } from "@tanstack/react-start/server";
++import { getHeaders, setResponseStatus } from "@tanstack/react-start/server";
++import { isAdminSession } from "./admin-check";
+ import { auth } from "./auth";
+ 
+ export const authMiddleware = createMiddleware().server(async ({ next }) => {
+@@ -36,32 +37,29 @@ export const getSession = createServerFn({ method: "GET" })
+     return context.session;
+   });
+ 
++const listedAdmin = async (twitchUserId: string) =>
++  !!(await db.query.admins.findFirst({
++    where: (table, { eq }) => eq(table.twitchUserId, twitchUserId),
++  }));
++
+ export const isUserAdmin = createServerFn({ method: "GET" })
+   .middleware([authMiddleware])
+   .handler(async ({ context }) => {
+-    const session = context.session;
+-    if (!session?.user?.id || !session.accounts) {
+-      return false;
+-    }
+-
+-    // Find Twitch account
+-    const twitchAccount = session.accounts.find(
+-      (account) => account.provider === "twitch",
+-    );
++    return await isAdminSession(context.session, env.TWITCH_ADMIN_USER, listedAdmin);
++  });
+ 
+-    if (!twitchAccount) {
+-      return false;
++// SEC-PROG-19: every server function that changes data or lists admins runs behind this. A server function is a public
++// endpoint, so the dashboard page's own redirect is not enough: no session gives 401, a signed-in non-admin 403.
++export const adminMiddleware = createMiddleware()
++  .middleware([authMiddleware])
++  .server(async ({ next, context }) => {
++    if (!context.session) {
++      setResponseStatus(401);
++      throw new Error("Sign in first.");
+     }
+-
+-    // Check if user is the main admin from env
+-    if (twitchAccount.accountId === env.TWITCH_ADMIN_USER) {
+-      return true;
++    if (!(await isAdminSession(context.session, env.TWITCH_ADMIN_USER, listedAdmin))) {
++      setResponseStatus(403);
++      throw new Error("Admins only.");
+     }
+-
+-    // Check if user is in admin list from database
+-    const adminRecord = await db.query.admins.findFirst({
+-      where: (table, { eq }) => eq(table.twitchUserId, twitchAccount.accountId),
+-    });
+-
+-    return !!adminRecord;
++    return await next();
+   });
+diff --git a/frontend/app/services/clips.ts b/frontend/app/services/clips.ts
+index 9c6b3d6..eb8b0cf 100644
+--- a/frontend/app/services/clips.ts
++++ b/frontend/app/services/clips.ts
+@@ -3,6 +3,7 @@ import { overlay as overlayTable } from "@/db/schema";
+ import { env } from "@/env";
+ import type { TwitchClip } from "@arcade/twitch/clips";
+ import { queryOptions } from "@tanstack/react-query";
++import { adminMiddleware } from "@/lib/auth-server";
+ import { createServerFn } from "@tanstack/react-start";
+ import { eq } from "drizzle-orm";
+ import ky from "ky";
+@@ -11,7 +12,8 @@ import z from "zod";
+ 
+ const nanoid = customAlphabet("0123456789abcdef", 7);
+ 
+-export const getOverlays = createServerFn({ method: "GET" }).handler(
++export const getOverlays = createServerFn({ method: "GET" })
++  .middleware([adminMiddleware]).handler(
+   async () => {
+     return await db.query.overlay.findMany({
+       columns: {
+@@ -35,6 +37,7 @@ export const getOverlayById = createServerFn({ method: "GET" })
+   });
+ 
+ export const updateOverlay = createServerFn({ method: "POST" })
++  .middleware([adminMiddleware])
+   .validator(
+     z.object({
+       name: z.string(),
+@@ -55,6 +58,7 @@ export const updateOverlay = createServerFn({ method: "POST" })
+   });
+ 
+ export const createOverlay = createServerFn({ method: "POST" })
++  .middleware([adminMiddleware])
+   .validator(
+     z.object({
+       name: z.string(),
+@@ -74,6 +78,7 @@ export const createOverlay = createServerFn({ method: "POST" })
+   });
+ 
+ export const deleteOverlay = createServerFn({ method: "POST" })
++  .middleware([adminMiddleware])
+   .validator(
+     z.object({
+       overlayId: z.string(),
+diff --git a/frontend/app/services/twitch-users.ts b/frontend/app/services/twitch-users.ts
+index e042819..5991c37 100644
+--- a/frontend/app/services/twitch-users.ts
++++ b/frontend/app/services/twitch-users.ts
+@@ -2,11 +2,13 @@ import { db } from "@/db";
+ import { admins, excludedCreators } from "@/db/schema";
+ import { TwicthInstance } from "@/lib/twitch";
+ import { Users } from "@arcade/twitch";
++import { adminMiddleware } from "@/lib/auth-server";
+ import { createServerFn } from "@tanstack/react-start";
+ import { eq } from "drizzle-orm";
+ import z from "zod";
+ 
+ export const searchTwitchUsers = createServerFn({ method: "GET" })
++  .middleware([adminMiddleware])
+   .validator(
+     z.object({
+       query: z.string().min(1),
+@@ -25,6 +27,7 @@ export const searchTwitchUsers = createServerFn({ method: "GET" })
+   });
+ 
+ export const addAdmin = createServerFn({ method: "POST" })
++  .middleware([adminMiddleware])
+   .validator(
+     z.object({
+       twitchUserId: z.string(),
+@@ -45,6 +48,7 @@ export const addAdmin = createServerFn({ method: "POST" })
+   });
+ 
+ export const removeAdmin = createServerFn({ method: "POST" })
++  .middleware([adminMiddleware])
+   .validator(
+     z.object({
+       twitchUserId: z.string(),
+@@ -60,7 +64,8 @@ export const removeAdmin = createServerFn({ method: "POST" })
+     }
+   });
+ 
+-export const getAdmins = createServerFn({ method: "GET" }).handler(async () => {
++export const getAdmins = createServerFn({ method: "GET" })
++  .middleware([adminMiddleware]).handler(async () => {
+   try {
+     const adminList = await db.query.admins.findMany({
+       orderBy: (admins, { desc }) => [desc(admins.addedAt)],
+@@ -73,6 +78,7 @@ export const getAdmins = createServerFn({ method: "GET" }).handler(async () => {
+ });
+ 
+ export const addExcludedCreator = createServerFn({ method: "POST" })
++  .middleware([adminMiddleware])
+   .validator(
+     z.object({
+       twitchUserId: z.string(),
+@@ -93,6 +99,7 @@ export const addExcludedCreator = createServerFn({ method: "POST" })
+   });
+ 
+ export const removeExcludedCreator = createServerFn({ method: "POST" })
++  .middleware([adminMiddleware])
+   .validator(
+     z.object({
+       twitchUserId: z.string(),
+@@ -110,7 +117,8 @@ export const removeExcludedCreator = createServerFn({ method: "POST" })
+     }
+   });
+ 
+-export const getExcludedCreators = createServerFn({ method: "GET" }).handler(
++export const getExcludedCreators = createServerFn({ method: "GET" })
++  .middleware([adminMiddleware]).handler(
+   async () => {
+     try {
+       const excludedList = await db.query.excludedCreators.findMany({

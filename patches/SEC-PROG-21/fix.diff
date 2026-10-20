@@ -1,0 +1,124 @@
+diff --git a/dashboard/features/obsremote.mjs b/dashboard/features/obsremote.mjs
+index 99e3f04..8eb57ab 100644
+--- a/dashboard/features/obsremote.mjs
++++ b/dashboard/features/obsremote.mjs
+@@ -61,15 +61,18 @@ export function obsRemoteAddress(publicBase, key, apiPath) {
+ }
+ 
+ // Where the app is on the internet (Cloudflare tells us), or this PC for a direct local test.
++// SEC-PROG-21: cf-connecting-ip counts only on a connection from this PC (cloudflared or the game's pass-through).
++const LOOPBACK = /^(127\.|::1$|::ffff:127\.)/;
+ export function clientIp(req) {
+-  return String((req.headers && req.headers["cf-connecting-ip"]) || (req.socket && req.socket.remoteAddress) || "?");
++  const sock = String((req.socket && req.socket.remoteAddress) || "");
++  const cf = String((req.headers && req.headers["cf-connecting-ip"]) || "").trim();
++  return (cf && LOOPBACK.test(sock) ? cf : sock) || "?";
+ }
+ 
+ // From the internet, only over wss:// (TLS). Plain ws:// would send the key in the clear.
++// SEC-PROG-21: secure only by cf-visitor (Cloudflare sets it); x-forwarded-proto is never read.
+ export function isSecure(headers = {}) {
+   if (!headers["cf-connecting-ip"]) return true; // opened on this PC directly, not through Cloudflare
+-  const proto = String(headers["x-forwarded-proto"] || "").toLowerCase().split(",")[0].trim();
+-  if (proto === "https" || proto === "wss") return true;
+   return /"scheme"\s*:\s*"(https|wss)"/i.test(String(headers["cf-visitor"] || ""));
+ }
+ 
+diff --git a/dashboard/features/twitchapp.mjs b/dashboard/features/twitchapp.mjs
+index 79df3cc..b7f7650 100644
+--- a/dashboard/features/twitchapp.mjs
++++ b/dashboard/features/twitchapp.mjs
+@@ -352,9 +352,11 @@ export function ipBucket(ip) {
+ 
+ // Who is asking: Cloudflare's cf-connecting-ip (the visitor's real address; through the tunnel the connection itself
+ // always comes from this PC), else the connection's own address (opened on the home network directly).
++// SEC-PROG-21: the header counts only on a connection from this PC (cloudflared or the game's pass-through).
+ export function clientKey(req) {
+   const h = req?.headers?.["cf-connecting-ip"];
+-  const fromHeader = ipBucket(String(Array.isArray(h) ? h[0] : h ?? "").split(",")[0]);
++  const loopback = /^(127\.|::1$|::ffff:127\.)/.test(String(req?.socket?.remoteAddress || ""));
++  const fromHeader = loopback ? ipBucket(String(Array.isArray(h) ? h[0] : h ?? "").split(",")[0]) : "";
+   return fromHeader || ipBucket(req?.socket?.remoteAddress) || "?";
+ }
+ 
+diff --git a/dashboard/server.mjs b/dashboard/server.mjs
+index 82fb329..33379c4 100644
+--- a/dashboard/server.mjs
++++ b/dashboard/server.mjs
+@@ -431,10 +431,17 @@ function cookieList(req) {
+   }
+   return list;
+ }
+-const isHttps = (req) => req.headers["x-forwarded-proto"] === "https" || /"scheme":"https"/.test(req.headers["cf-visitor"] || "");
++// SEC-PROG-21: https only by cf-visitor (Cloudflare sets it); x-forwarded-proto is never read (anyone can send it).
++const isHttps = (req) => /"scheme"\s*:\s*"https"/.test(req.headers["cf-visitor"] || "");
+ // Came in from the internet through Cloudflare (not opened on this PC directly)
+ const viaCloudflare = (req) => Boolean(req.headers["cf-connecting-ip"]);
+-const clientIp = (req) => String(req.headers["cf-connecting-ip"] || req.socket.remoteAddress || "?");
++// SEC-PROG-21: only a connection from this PC (cloudflared, the game's pass-through) may name the visitor with cf-connecting-ip.
++const LOOPBACK = /^(127\.|::1$|::ffff:127\.)/;
++const clientIp = (req) => {
++  const sock = String(req.socket?.remoteAddress || "");
++  const cf = String(req.headers["cf-connecting-ip"] || "").trim();
++  return (cf && LOOPBACK.test(sock) ? cf : sock) || "?";
++};
+ 
+ const BASE_HEADERS = {
+   "Cache-Control": "no-store",
+diff --git a/dashboard/test/obsremote.test.mjs b/dashboard/test/obsremote.test.mjs
+index 32c5fcc..7ba13e8 100644
+--- a/dashboard/test/obsremote.test.mjs
++++ b/dashboard/test/obsremote.test.mjs
+@@ -58,6 +58,7 @@ function wsRequest(key, { ip = "203.0.113.5", proto = "https", extra = [] } = {}
+     "CF-Connecting-IP", ip,
+     "CF-Ray", "abc123",
+     "X-Forwarded-Proto", proto,
++    "CF-Visitor", `{"scheme":"${proto}"}`, // SEC-PROG-21: Cloudflare sends this; it is what counts now
+     "X-Forwarded-For", ip,
+     "Cookie", "irls=session-secret",
+     ...extra,
+@@ -124,12 +125,15 @@ test("the address uses wss and the host of the site", () => {
+ test("clientIp trusts Cloudflare's header, else the socket", () => {
+   assert.equal(clientIp({ headers: { "cf-connecting-ip": "198.51.100.7" }, socket: { remoteAddress: "127.0.0.1" } }), "198.51.100.7");
+   assert.equal(clientIp({ headers: {}, socket: { remoteAddress: "127.0.0.1" } }), "127.0.0.1");
++  // SEC-PROG-21: from any other connection the header is ignored
++  assert.equal(clientIp({ headers: { "cf-connecting-ip": "198.51.100.7" }, socket: { remoteAddress: "10.0.0.9" } }), "10.0.0.9");
+ });
+ 
+ test("isSecure: from the internet only over https/wss", () => {
+   assert.equal(isSecure({}), true); // this PC directly
+-  assert.equal(isSecure({ "cf-connecting-ip": "1.2.3.4", "x-forwarded-proto": "https" }), true);
+-  assert.equal(isSecure({ "cf-connecting-ip": "1.2.3.4", "x-forwarded-proto": "wss" }), true);
++  // SEC-PROG-21: x-forwarded-proto alone never counts (anyone can send it)
++  assert.equal(isSecure({ "cf-connecting-ip": "1.2.3.4", "x-forwarded-proto": "https" }), false);
++  assert.equal(isSecure({ "cf-connecting-ip": "1.2.3.4", "x-forwarded-proto": "wss" }), false);
+   assert.equal(isSecure({ "cf-connecting-ip": "1.2.3.4", "cf-visitor": '{"scheme":"https"}' }), true);
+   assert.equal(isSecure({ "cf-connecting-ip": "1.2.3.4", "x-forwarded-proto": "http" }), false);
+   assert.equal(isSecure({ "cf-connecting-ip": "1.2.3.4", "cf-visitor": '{"scheme":"http"}' }), false);
+diff --git a/dashboard/test/stress.test.mjs b/dashboard/test/stress.test.mjs
+index 9e66fbd..bbcbb32 100644
+--- a/dashboard/test/stress.test.mjs
++++ b/dashboard/test/stress.test.mjs
+@@ -377,7 +377,7 @@ test("fault: a settings file that can't be written gives a plain answer, and the
+ }));
+ 
+ // ---------- 4. auth ----------
+-const viaCf = (ip, https = true) => ({ "cf-connecting-ip": ip, ...(https ? { "x-forwarded-proto": "https" } : {}) });
++const viaCf = (ip, https = true) => ({ "cf-connecting-ip": ip, ...(https ? { "cf-visitor": '{"scheme":"https"}' } : {}) }); // SEC-PROG-21: cf-visitor, never x-forwarded-proto
+ 
+ test("auth: wrong passwords are limited per address, and other addresses never lock the owner out", { timeout: 20000 }, (t) => run(t, async () => {
+   for (let i = 0; i < 5; i++) assert.equal((await d().login("nope", viaCf("198.51.100.1"))).status, 401);
+diff --git a/dashboard/test/twitchapp.test.mjs b/dashboard/test/twitchapp.test.mjs
+index e34e7cf..f07e24d 100644
+--- a/dashboard/test/twitchapp.test.mjs
++++ b/dashboard/test/twitchapp.test.mjs
+@@ -492,7 +492,8 @@ test("clientKey: the visitor's address, IPv6 grouped by /64", () => {
+   assert.equal(clientKey(r(undefined, "10.0.0.5")), "10.0.0.5", "no Cloudflare header: the connection's own address");
+   assert.equal(clientKey(r(undefined, "::ffff:10.0.0.5")), "10.0.0.5");
+   assert.equal(clientKey(r("not an address", "10.0.0.6")), "10.0.0.6");
+-  assert.equal(clientKey({}), "?");
++  assert.equal(clientKey({}), "?");
++  assert.equal(clientKey(r("198.51.100.7", "10.0.0.5")), "10.0.0.5", "SEC-PROG-21: the header counts only from this PC");
+   assert.equal(clientKey(r("2001:DB8:1:2::1")), "2001:db8:1:2::/64");
+   assert.equal(ipBucket("2001:0db8:0001:0002:0000:0000:0000:0001"), ipBucket("2001:db8:1:2:ffff::"));
+   assert.notEqual(ipBucket("2001:db8:1:2::1"), ipBucket("2001:db8:1:3::1"));
