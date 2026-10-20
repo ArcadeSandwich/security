@@ -33,6 +33,38 @@ function Remove-SecretsDeep($o) {
     return $o
 }
 
+# The protected state folder for a fix pack: C:\ProgramData\SecurityConsole\state\<pack folder name>,
+# e.g. Get-PackStateDir 'FIX-1-rdp-tailscale-only'. Shared by every pack and the console. Needs an elevated window.
+# Creates each missing level owned by Administrators with only Administrators and SYSTEM (no inherited rules).
+# Accepts an existing folder only if its owner and every allow rule are Administrators or SYSTEM; otherwise throws.
+# There is no fallback path.
+function Get-PackStateDir([string]$packFolderName) {
+    if ($packFolderName -cnotmatch '^FIX-\d+-[a-z0-9-]+$') { throw "Bad pack folder name: $packFolderName" }
+    if (-not (Test-Elevated)) { throw 'The pack state folder needs an elevated window.' }
+    $admins = New-Object Security.Principal.SecurityIdentifier 'S-1-5-32-544'
+    $system = New-Object Security.Principal.SecurityIdentifier 'S-1-5-18'
+    $allowed = @($admins.Value, $system.Value)
+    $dir = $env:ProgramData
+    foreach ($part in 'SecurityConsole', 'state', $packFolderName) {
+        $dir = Join-Path $dir $part
+        if (-not (Test-Path -LiteralPath $dir)) {
+            $sec = New-Object Security.AccessControl.DirectorySecurity
+            $sec.SetAccessRuleProtection($true, $false)
+            $sec.SetOwner($admins)
+            foreach ($sid in $admins, $system) {
+                $sec.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($sid, 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow')))
+            }
+            [void][IO.Directory]::CreateDirectory($dir, $sec)
+        }
+        $acl = Get-Acl -LiteralPath $dir
+        if ($allowed -notcontains $acl.GetOwner([Security.Principal.SecurityIdentifier]).Value) { throw "Unsafe state folder (owner): $dir" }
+        foreach ($ace in $acl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier])) {
+            if ($ace.AccessControlType -eq 'Allow' -and $allowed -notcontains $ace.IdentityReference.Value) { throw "Unsafe state folder (allow rule for $($ace.IdentityReference.Value)): $dir" }
+        }
+    }
+    return $dir
+}
+
 # All inbound firewall rules, read with netsh (works without admin rights). Field names are English
 # (netsh prints them in English even when rule names are Norwegian).
 function Get-InboundRulesNetsh {
