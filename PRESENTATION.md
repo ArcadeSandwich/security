@@ -15,6 +15,7 @@ Last updated: 2026-10-20, night (round 2 finished, round 3 and the patches under
   - Finn Scout's new routes for the laptop need your key and keep their logs clean;
   - the Playbook's download tools can't be pointed back at this PC, and videos come only from YouTube and Instagram;
   - the game refuses requests that change things when they come from another site;
+  - a feature is approved only by a decision you record on the Workplace, tied to the exact build text; text like "Approved: owner" no longer counts anywhere, and the old job runner never builds features;
   - players' bug reports now wait for an approval before the job runner builds them, approvals come only through the protected Workplace page, and every request is logged;
   - the job runner pushes only the exact version it checked, and refuses merge commits;
   - the background OpenCode service stops itself after 15 quiet minutes;
@@ -101,7 +102,6 @@ Some apps you may not use still hold saved sign-ins on this PC: Codex, the Ollam
 Free memory on cadeyserver fell to about 0.6 GB of 16 GB overnight. The chats (about 29 Claude processes, about 6.2 GB together, most of them 330 to 380 MB each) plus Minecraft (about 2.8 GB, normal) use most of it. Nothing is leaking or running away. Security paused every live test below the 1 GB safety line; code reading and patches went on. In the morning you can close the chats that have finished their work, which frees the most memory.
 
 ## Questions for you
-- **Does a copy of the old Work program (oak-world-work) or its job runner still run on your main PC?** Until Logging's fix lands, the old runner would still accept the text "Approved: owner" as an approval.
 - **Is anything on your Tailscale network besides your own devices?** (Ollama answers every Tailscale device.)
 - **Where does arcade-server (MustaHub) run, and is it what serves musta.no?** (Q-ARCADE-DEPLOYED)
 - **The MAIN and Absurdity boxes:** limit their commands to an allowed list (our pick), have them ask you before each command, or accept the risk? (Q-AG17-BOXES)
