@@ -15,8 +15,6 @@ const { loadExtraSecrets } = require(CHECK);
 const F = {
   json: 'fake' + 'JsonKey' + '12345',
   nested: 'fake' + 'Nested' + 'Token9',
-  env: 'fake' + 'EnvValue' + '777',
-  quoted: 'fake' + 'Quoted' + 'Value1',
   txt: 'fake' + 'Password' + '42',
   url: 'rtmp://live.example.invalid/app/' + 'fake' + 'StreamKey' + '0099',
 };
@@ -30,29 +28,28 @@ function fixtures() {
   fs.writeFileSync(path.join(dir, 'private-musta', 'dashboard-password.txt'), F.txt + '\n\n');
   fs.writeFileSync(path.join(dir, 'private-musta', 'stream-urls.txt'), F.url + '\n');
   fs.writeFileSync(path.join(dir, 'public', 'readme.txt'), 'fake' + 'NotSecretAtAll' + '\n');
-  fs.writeFileSync(path.join(dir, '.env'), `# comment=${'fake' + 'Comment' + 'Value'}\nKEY_A=${F.env}\nKEY_B="${F.quoted}"\nPORT=3000\n`);
+  fs.writeFileSync(path.join(dir, '.env'), `KEY_A=${'fake' + 'OtherProject' + 'Value'}\n`); // outside private*: never loaded
   fs.writeFileSync(path.join(dir, 'private', 'broken.json'), '{ not json');
   return dir;
 }
 
-test('loads whole values from private* folders and .env, and nothing else', () => {
+test('loads whole values from private* folders only, and nothing else', () => {
   const dir = fixtures();
   try {
     const { found, notes } = loadExtraSecrets([
       { label: 'irl', dir, dirPattern: /^private/i },
-      { label: 'arcade-server', file: path.join(dir, '.env') },
     ]);
     const values = new Set(found.map((f) => f.value));
     for (const v of Object.values(F)) assert.ok(values.has(v), 'a fake value was not loaded');
-    assert.strictEqual(found.length, Object.keys(F).length, 'no extra values (ports, booleans, short strings, plain URLs, comments, public folder)');
+    assert.strictEqual(found.length, Object.keys(F).length, 'no extra values (ports, booleans, short strings, plain URLs, public folder)');
     for (const f of found) for (const v of Object.values(F)) assert.ok(!f.name.includes(v), 'a name must never hold a value');
     assert.ok(found.some((f) => f.name === 'irl private keys.json: b.c[0]'));
-    assert.ok(found.some((f) => f.name === 'arcade-server .env: KEY_A'));
+    assert.ok(found.every((f) => f.name.startsWith('irl private')));
     assert.deepStrictEqual(notes, ['irl private broken.json could not be parsed, its values were not checked']);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('a missing folder or file is skipped quietly', () => {
-  const r = loadExtraSecrets([{ label: 'x', dir: path.join(os.tmpdir(), 'no-such-sec10'), dirPattern: /^private/ }, { label: 'y', file: path.join(os.tmpdir(), 'no-such-sec10.env') }]);
+test('a missing folder is skipped quietly', () => {
+  const r = loadExtraSecrets([{ label: 'x', dir: path.join(os.tmpdir(), 'no-such-sec10'), dirPattern: /^private/ }]);
   assert.deepStrictEqual(r, { found: [], notes: [] });
 });
