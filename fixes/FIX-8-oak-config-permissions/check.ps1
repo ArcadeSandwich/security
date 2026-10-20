@@ -5,7 +5,7 @@ param([switch]$Undone)
 $ErrorActionPreference = 'Stop'
 
 $File    = 'C:\server\oak-world\oak-world\oak-config.json'
-$AclSave = 'C:\ProgramData\SecurityConsole\state\SEC-FIX-8\oak-config.acl'   # Get-PackStateDir 'SEC-FIX-8' (admin-only)
+$AclSave = 'C:\ProgramData\SecurityConsole\state\FIX-8-oak-config-permissions\oak-config.acl'   # Get-PackStateDir 'FIX-8-oak-config-permissions' (admin-only)
 $Tasks   = 'Startup - Oak World Game', 'Startup - Oak World Work'   # the game + start-live.bat, and Work/Workplace
 $bad = 0
 function Say($ok, $msg) { if ($ok) { "PASS $msg" } else { "FAIL $msg"; $script:bad++ } }

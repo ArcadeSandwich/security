@@ -25,7 +25,7 @@ function Fail($what) { throw "FIX-8: $what" }
 # because -Undo applies them elevated. There is no fallback to a folder a normal chat could write.
 function AclSave {
   if (-not (Get-Command Get-PackStateDir -ErrorAction SilentlyContinue)) { Fail 'Get-PackStateDir is missing from lib\common.ps1: nothing done.' }
-  Join-Path (Get-PackStateDir 'SEC-FIX-8') 'oak-config.acl'
+  Join-Path (Get-PackStateDir 'FIX-8-oak-config-permissions') 'oak-config.acl'
 }
 # An icacls /save file is pairs of lines: a file name, then its permissions. Ours must name oak-config.json only.
 function Test-AclSave($f) {
@@ -40,7 +40,7 @@ if ($DryRun) {
   $acct = Get-Account
   "File: $File"
   '  now:'; Show-Acl $File
-  "  would: save these permissions to the pack's admin-only state folder (C:\ProgramData\SecurityConsole\state\SEC-FIX-8), stop inheriting (keeping the entries as they are),"
+  "  would: save these permissions to the pack's admin-only state folder (C:\ProgramData\SecurityConsole\state\FIX-8-oak-config-permissions), stop inheriting (keeping the entries as they are),"
   "         remove BUILTIN\Users and Authenticated Users, and give $acct Modify."
   '  Unknown account SIDs already on the file are left as they are (see README).'
   ''

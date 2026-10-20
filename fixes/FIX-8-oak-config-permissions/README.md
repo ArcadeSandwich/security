@@ -11,7 +11,7 @@ Status: reviewed-security
 
 ## What each mode does
 - `-DryRun` (no admin needed): shows the file's current permissions, what would change, and the list of old copies below. Changes nothing.
-- `-Apply`: saves the current permissions with `icacls oak-config.json /save` to `C:\ProgramData\SecurityConsole\state\SEC-FIX-8\oak-config.acl`, a folder only Administrators and SYSTEM can write, so no chat can change what `-Undo` applies (it never overwrites an earlier save). Then it grants CadeyServer Modify, turns off inheritance (keeping the entries) and removes BUILTIN\Users and Authenticated Users.
+- `-Apply`: saves the current permissions with `icacls oak-config.json /save` to `C:\ProgramData\SecurityConsole\state\FIX-8-oak-config-permissions\oak-config.acl`, a folder only Administrators and SYSTEM can write, so no chat can change what `-Undo` applies (it never overwrites an earlier save). Then it grants CadeyServer Modify, turns off inheritance (keeping the entries) and removes BUILTIN\Users and Authenticated Users.
 - `-Undo`: refuses a saved file that names anything other than oak-config.json; otherwise restores the saved permissions with `icacls <folder> /restore` and turns inheritance back on.
 - `check.ps1`: read-only. It passes when inheritance is off; there is no Users, Authenticated Users or Everyone entry; the accounts of the "Startup - Oak World Game" and "Startup - Oak World Work" tasks each have an explicit read entry and no deny; and the game still answers on 127.0.0.1:3000. `check.ps1 -Undone` checks an undo instead.
 
