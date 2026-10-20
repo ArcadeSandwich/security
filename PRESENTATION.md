@@ -10,7 +10,9 @@ Last updated: 2026-10-20 (round 2 under way).
 - musta.no is entirely behind a Cloudflare Access login, which is good.
 - Started the security tool folder (`C:\server\security`). The fix launcher is written and under review: it will apply only fixes whose files match what Server approved.
 - Approved the design for recovery after a power cut. You will type your Windows password once, in Windows' own window. **One side effect:** Ollama will start as a background service at boot, so its tray icon will no longer appear.
-- Built the read-only probe of the PC, and fix packs for Remote Desktop, Hyper-V's port 2179 and power-cut recovery. All are under review: every pack keeps its undo record where only administrators can change it, so no chat can tamper with an undo.
+- Built the read-only probe of the PC and seven fix packs (Remote Desktop, Hyper-V, Tailscale blocks, program rules, the Tailscale access rule, power-cut recovery, key-file permissions), plus the one launcher.
+- Hardened them after two reviews: every pack keeps its undo record where only administrators can change it; the launcher runs only files whose fingerprints Server approved, from a protected copy; and no script can be tricked into loading a fake PowerShell module or a fake program (tested by planting fakes). Waiting for Server's final approval.
+- Closed and rechecked: the Workplace's port switch, the old Work page now behind the front door, and the first half of the two job-runner fixes.
 
 ## 1. What was checked
 | Project | Checked so far | Still to check |
