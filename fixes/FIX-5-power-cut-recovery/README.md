@@ -1,6 +1,6 @@
 # FIX-5 Power-cut recovery (SEC-FIX-5)
 
-Status: draft (design A approved by Server, 2026-10-20)
+Status: reviewed-security (design A approved by Server, 2026-10-20)
 
 ## What and why
 - Finding: **W-22, high** (Security · Resilience, round 1, INS-015, log commit fc1f783f in oak-world).
@@ -44,7 +44,7 @@ Recommended.
 
 ## Files
 - `fix.ps1 -DryRun`: prints what would change, including the .bat each task runs. It changes nothing and writes nothing.
-- `fix.ps1 -Apply`: needs elevation. It first saves each task's XML, plus a record of the program each one runs, into `C:\ProgramData\SecurityConsole\state\SEC-FIX-5\` (Get-PackStateDir, which only Administrators and SYSTEM can write). It does this only when FIX-5 is not already on the task, so the pre-fix copy is kept. Then it asks for the Admin's password in Windows' own box, and sets A plus restart-on-failure. If Get-PackStateDir is missing, it stops before changing anything.
+- `fix.ps1 -Apply`: needs elevation. It first saves each task's XML, plus a record of the program each one runs, into `C:\ProgramData\SecurityConsole\state\FIX-5-power-cut-recovery\` (Get-PackStateDir, which only Administrators and SYSTEM can write). It does this only when FIX-5 is not already on the task, so the pre-fix copy is kept. Then it asks for the Admin's password in Windows' own box, and sets A plus restart-on-failure. If Get-PackStateDir is missing, it stops before changing anything.
 - `fix.ps1 -Undo`: needs elevation. It restores each backed-up task only if the XML names one of the three tasks and runs exactly what -Apply recorded; otherwise nothing is undone.
 - The password: it is read once and passed straight to Set-ScheduledTask. An error is reported by its type only, never with its arguments, and the variables and $Error are cleared afterwards.
 - `check.ps1`: read-only. PASS or FAIL for each task (startup trigger, runs without sign-in, restart-on-failure), and shows whether automatic sign-in is on.
