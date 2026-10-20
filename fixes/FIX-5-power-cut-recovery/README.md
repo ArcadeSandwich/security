@@ -49,6 +49,23 @@ Recommended.
 - The password: it is read once and passed straight to Set-ScheduledTask. An error is reported by its type only, never with its arguments, and the variables and $Error are cleared afterwards.
 - `check.ps1`: read-only. PASS or FAIL for each task (startup trigger, runs without sign-in, restart-on-failure), and shows whether automatic sign-in is on.
 
+## Mandatory test right after applying (run -Undo if any step fails)
+Server plans it and the Admin starts the restart. It is done at a quiet time, the same day FIX-5 is applied.
+1. Restart the PC and do not sign in.
+2. Within 3 minutes, from another device over Tailscale or after signing in, check the following. The proof that nobody was signed in is the task start times, which come before the sign-in.
+   - Ports 3000 (game), 3001 (old Work), 3004 (Workplace) and 11434 (Ollama) are listening.
+   - The tunnel is up: arcadesandwich.com loads the access door.
+3. The game's AI answers one turn. The keys come from the user environment, now loaded without a sign-in.
+4. `tools\deploy.ps1` can still restart the game: node now runs in session 0, while chats deploy from session 1.
+5. The Workplace and the old Work are both up.
+6. `check.ps1` gives RESULT: PASS.
+If any step fails, run `fix.ps1 -Undo` from the console, run check.ps1, and report to Server.
+
+## Hardening
+- The first statement of fix.ps1 (right after its parameters) and of check.ps1 sets PSModulePath to Windows' own module folder only, and imports ScheduledTasks from its full path. A ScheduledTasks module planted in Documents\WindowsPowerShell\Modules, which any chat can write, is therefore never loaded when the script runs elevated.
+- Tested on 2026-10-20 in a non-elevated process, with a dummy module first in PSModulePath: a plain Get-ScheduledTask was hijacked; check.ps1 and fix.ps1 -DryRun were not.
+- MultipleInstances=IgnoreNew and ExecutionTimeLimit=PT0S (no time limit) are set explicitly, and check.ps1 checks both.
+
 ## After applying
 - A real restart test is a PLAN for Server, at a quiet time.
 - After the restart, run check.ps1 and confirm that 127.0.0.1:3000 and 3001, and port 11434, answer within 3 minutes, before anyone signs in.

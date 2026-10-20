@@ -1,7 +1,10 @@
 # FIX-5 Power-cut recovery (W-22). See README.md. Switches only: -DryRun, -Apply, -Undo.
 [CmdletBinding()]
 param([switch]$DryRun, [switch]$Apply, [switch]$Undo)
+# First statement (only param may come before it): load modules from Windows' own folder only, never from a folder a chat can write.
+$env:PSModulePath = "$env:windir\System32\WindowsPowerShell\v1.0\Modules"
 $ErrorActionPreference = 'Stop'
+Import-Module "$env:windir\System32\WindowsPowerShell\v1.0\Modules\ScheduledTasks" -Force
 
 $Tasks     = 'Startup - Oak World Game', 'Startup - Oak World Work', 'Startup - Ollama'
 $OllamaDir = 'C:\Users\cadey\AppData\Local\Programs\Ollama'
@@ -88,6 +91,8 @@ try {
     $s = $t.Settings
     $s.RestartCount = 3
     $s.RestartInterval = 'PT1M'
+    $s.MultipleInstances = 'IgnoreNew'
+    $s.ExecutionTimeLimit = 'PT0S'
     $set = @{ TaskName = $n; TaskPath = '\'; Trigger = @($boot) + @($logon); Settings = $s; User = $user }
     if ($n -eq 'Startup - Ollama') {
       $set.Action = New-ScheduledTaskAction -Execute "$OllamaDir\ollama.exe" -Argument 'serve' -WorkingDirectory $OllamaDir
