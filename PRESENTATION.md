@@ -81,7 +81,7 @@ Ranks: **high** means someone could get in or something important could be lost;
 7. **GitHub**, for oak-world, ai-workspace and ai-workspace-app: Settings → Branches (or Rules → Rulesets) → add a rule for `main` → tick **Block force pushes** and **Restrict deletions** → Save. On a free account this may need GitHub Pro; if so, tell Server, and the check on this PC stays the lock.
 8. **Windows Update:** the October updates are not installed (newest is from 9 September). Run "Check for updates" at a quiet time, after FIX-5, FIX-9 and their restart test, so the services come back by themselves after the update restart. Consider moving active hours to cover the evening, when the game is used.
 9. **Delivery Optimization:** Settings → Windows Update → Advanced options → Delivery Optimization → "Allow downloads from other PCs" off (the part of FIX-10 that needs no script).
-10. **MustaHub:** if arcade-server is what runs musta.no, hand `C:\server\security\patches\SEC-PROG-19` and `SEC-PROG-23` to the MustaHub chats. For SEC-PROG-23, add the site's address as a redirect URL in the Twitch developer console (a login step).
+10. **MustaHub:** if arcade-server is what runs musta.no, hand `C:\server\security\patches\SEC-PROG-19` and `SEC-PROG-25` to the MustaHub chats. For SEC-PROG-25, add the site's address as a redirect URL in the Twitch developer console (a login step).
 11. **When IRLToolkit is back:** create the private GitHub repository ArcadeSandwich/irl-stream (a login step) after its git-settings patch.
 
 ## Questions for you

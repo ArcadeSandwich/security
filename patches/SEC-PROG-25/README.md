@@ -1,4 +1,4 @@
-# SEC-PROG-23 (MustaHub part): the Twitch login's return address follows the site (low)
+# SEC-PROG-25 (MustaHub part): the Twitch login's return address follows the site (low)
 
 Status: ready-for-owner (reviewed by Security, 2026-10-20)
 Owner: the MustaHub chats (offline); the Admin hands this folder over.
