@@ -25,7 +25,7 @@ Ranks: **high** means someone could get in or something important could be lost;
 ### Waiting for your Windows prompt (fix packs ready)
 | Rank | What it means | Fix |
 |---|---|---|
-| High | **Remote Desktop is open to every device on your home network.** | FIX-1 limits it to your Tailscale devices |
+| High | **Remote Desktop is open to every device on your home network, and possibly to the internet over IPv6** (the PC has public IPv6 addresses; it depends on whether your router filters them). | FIX-1 limits it to your Tailscale devices; your router's IPv6 firewall is the second lock |
 | High | **Hyper-V's remote console port (2179) and a Hyper-V management rule are open to the home network.** | FIX-2 switches 2179 off and limits the management port to Tailscale |
 | High | **After a power cut, nothing comes back until someone signs in.** | FIX-5: the game, the Workplace and Ollama start at boot under your account and restart themselves 3 times. Ollama then runs in the background, so its tray icon goes |
 | Medium | Several firewall rules let a program accept anyone; safe today only because of how things happen to be set. Windows' container DNS answers the home network. | FIX-4 limits them to Tailscale or the virtual switches |
@@ -50,15 +50,21 @@ Ranks: **high** means someone could get in or something important could be lost;
 | High | **The IRL stream's git settings would publish MustaHub's passwords and keys** the first time the folder goes on GitHub. Nothing has leaked. | One-line patch for IRLToolkit, to apply before any git setup |
 | High | **Every Minecraft backup goes only to the failing D: drive.** | Patch: a second backup target on the main PC over Tailscale (you set up the login there) |
 | Medium | The stream machine's SRT management page opens for anyone on the home network (its controls still need a key). | Ready: one line makes it local-only |
-| Medium | Lore the Dungeon Master writes itself is fed back into its rules. | Patch being prepared for the DM chat |
 | Medium | The IRL stream has no git at all, so nothing to restore from. | Ready: the steps after the git-settings patch |
 | Low | The IRL dashboard trusts a forwarding header; the OBS remote key travels in the web address. | Patches being prepared for IRLToolkit |
+
+| Medium | Ollama answers anyone on your Tailscale network with no login (it can run, download or delete models). | The Tailscale access rule (FIX-7) keeps shared people out; if nothing on Tailscale uses Ollama, set OLLAMA_HOST=127.0.0.1 |
+| Medium | Lore the Dungeon Master writes itself is fed back into its rules. | **Ready:** the lore becomes a fenced data block (tested) |
+
+### Clean in round 3
+- Windows remote management is off (no WinRM, no remote registry, no SSH server; UAC on).
 
 ### Accepted, with the reason
 - **Every chat runs as your Windows account,** so no file permission can hide a key from a chat. The protection is the rules, the logs and replacing keys if one ever leaks.
 - **Minecraft and Musta's OBS come back only after a sign-in**, because they need a desktop or console window. Automatic sign-in would close this, but it stores your password in the registry, so we recommend leaving it.
 
 ## Your part, in order (logins and permissions only)
+0. **Most urgent: run FIX-1 and FIX-2 first** (step 2 below). Round 3 found that the home network card has **public IPv6 addresses**, and Remote Desktop and two Hyper-V ports accept anyone. If your router doesn't block incoming IPv6, they can be reached **from the internet**, not only from the Wi-Fi. Also, in your router's settings, turn on "block unsolicited inbound IPv6" (often called the IPv6 firewall). To check from outside, ask Network for this PC's IPv6 address in chat and test port 3389 from a phone on mobile data.
 1. **Copy the important data off the D: drive** (it is failing): the 960 GB of server backups and the 531 GB EDITING folder. Then replace the disk.
 2. **Run `C:\server\security\console\Security fixes.cmd`.** Check first that its first lines show the approved-list fingerprint **54010EF8…** (the same as the desk card Q-SEC-RUN); ignore the commit number. If the fingerprint differs, stop and tell Server.
    - **Run 1:** yes only to FIX-0-example (a harmless test). No to the rest.
