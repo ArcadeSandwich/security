@@ -85,6 +85,9 @@ Ranks: **high** means someone could get in or something important could be lost;
 10. **MustaHub:** if arcade-server is what runs musta.no, hand `C:\server\security\patches\SEC-PROG-19` and `SEC-PROG-25` to the MustaHub chats. For SEC-PROG-25, add the site's address as a redirect URL in the Twitch developer console (a login step).
 11. **When IRLToolkit is back:** create the private GitHub repository ArcadeSandwich/irl-stream (a login step) after its git-settings patch.
 
+## For your information: memory
+Free memory on cadeyserver fell to about 0.6 GB of 16 GB overnight. The chats (about 29 Claude processes, about 6 GB together) plus Minecraft (about 2.7 GB) use most of it. Security paused every live test below the 1 GB safety line; code reading and patches went on. In the morning you can close the chats that have finished their work, which frees the most memory.
+
 ## Questions for you
 - **Is anything on your Tailscale network besides your own devices?** (Ollama answers every Tailscale device.)
 - **Where does arcade-server (MustaHub) run, and is it what serves musta.no?** (Q-ARCADE-DEPLOYED)
