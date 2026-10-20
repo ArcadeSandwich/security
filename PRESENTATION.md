@@ -37,7 +37,7 @@ Ranks: **high** means someone could get in or something important could be lost;
 ### Being fixed by the chats that own the code
 | Rank | What it means | Status |
 |---|---|---|
-| High | **The Control chat could change any file and push to GitHub, and the Plan boxes had full tools while reading players' text.** | Both are now read-only. The recheck found they can still read your key file and fetch web pages, so a hidden order could send keys out, and the live Control chat still runs on its old rules. Logging is switching them to "block everything except reading" |
+| High | **The Control chat could change any file and push to GitHub, and the Plan boxes had full tools while reading players' text.** | **Control: fixed and rechecked** (everything blocked except reading and listing, key files blocked, old chat retired). Plan boxes: same fix, recheck running. Logging is also hardening the secret check on Control's tracker rows (it missed encoded or key-shaped text) |
 | High (less likely) | The MAIN and Absurdity boxes on the Work page keep full tools. | **Your choice** (desk question Q-AG17-BOXES) |
 | Medium | MAIN's start-prompt tool sends text into any chat that has the right title. | With Logging |
 | Medium | The AI Workspace app's link handling and update check have gaps. | With the AI Workspace Manager |
@@ -53,7 +53,6 @@ Ranks: **high** means someone could get in or something important could be lost;
 | Medium | The IRL stream has no git at all, so nothing to restore from. | Ready: the steps after the git-settings patch |
 | Low | The IRL dashboard trusts a forwarding header; the OBS remote key travels in the web address. | Patches being prepared for IRLToolkit |
 
-| Medium | Ollama answers anyone on your Tailscale network with no login (it can run, download or delete models). | The Tailscale access rule (FIX-7) keeps shared people out; if nothing on Tailscale uses Ollama, set OLLAMA_HOST=127.0.0.1 |
 | Medium | Lore the Dungeon Master writes itself is fed back into its rules. | **Ready:** the lore becomes a fenced data block (tested) |
 
 | Medium | Nothing tells you when a service (the game, the Workplace, Ollama, the stream, Minecraft) goes down. | Plan: a small read-only health check that posts "down" and "back" to your desk |
@@ -64,6 +63,7 @@ Ranks: **high** means someone could get in or something important could be lost;
 
 ### Accepted, with the reason
 - **Every chat runs as your Windows account,** so no file permission can hide a key from a chat. The protection is the rules, the logs and replacing keys if one ever leaks.
+- **Ollama answers your own Tailscale devices without a login**, on purpose (this PC and Tailscale only). The Tailscale access rule (FIX-7) keeps anyone you share with away from it.
 - **Minecraft and Musta's OBS come back only after a sign-in**, because they need a desktop or console window. Automatic sign-in would close this, but it stores your password in the registry, so we recommend leaving it.
 
 ## Your part, in order (logins and permissions only)
@@ -83,6 +83,7 @@ Ranks: **high** means someone could get in or something important could be lost;
 10. **When IRLToolkit is back:** create the private GitHub repository ArcadeSandwich/irl-stream (a login step) after its git-settings patch.
 
 ## Questions for you
+- **Is anything on your Tailscale network besides your own devices?** (Ollama answers every Tailscale device.)
 - **Where does arcade-server (MustaHub) run, and is it what serves musta.no?** (Q-ARCADE-DEPLOYED)
 - **The MAIN and Absurdity boxes:** limit their commands to an allowed list (our pick), have them ask you before each command, or accept the risk? (Q-AG17-BOXES)
 - **The Dungeon Master and hidden-message tests:** may Agents run them, and which chat and when?
