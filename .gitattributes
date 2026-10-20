@@ -1,0 +1,2 @@
+# Patches are applied with patch or git apply inside other systems (for example the Linux stream VM): keep them byte-exact.
+patches/** -text
