@@ -1,6 +1,6 @@
 # SEC-FIX-1: Remote Desktop from Tailscale only
 
-Status: reviewed-security
+Status: draft
 
 - **Finding:** W-1 (high). Remote Desktop (port 3389, TCP and UDP) is allowed from any address on every network profile, so any device on the home network can reach the sign-in screen.
 - **What it does:** every enabled inbound allow rule on port 3389 gets Remote IP `100.64.0.0/10` and `fd7a:115c:a1e0::/48` (Tailscale's IPv4 and IPv6 ranges). Remote Desktop stays on; it works from the Admin's Tailscale devices only.
@@ -17,7 +17,7 @@ Status: reviewed-security
 Elevated runs are logged in `log.txt` in the state folder. Source: Microsoft, Windows Firewall rules (Scope, Remote IP addresses); Tailscale, "What are these 100.x.y.z addresses" (100.64.0.0/10, fd7a:115c:a1e0::/48).
 
 ## Where the state is kept
-`C:\ProgramData\SecurityConsole\state\FIX-1-rdp-tailscale-only\` (`Get-PackStateDir` in `lib\common.ps1`). It is created elevated, with only Administrators and SYSTEM (inheritance off). A folder with another owner, or one that anybody else can write to, is refused. The state is not kept inside the pack, because the console runs packs from a temporary copy. `-Undo` checks every recorded rule before it changes any: the id must be an allow rule on this pack's port today, the profile a valid number and every address valid. Otherwise it changes nothing.
+`C:\ProgramData\SecurityConsole\state\FIX-1-rdp-tailscale-only\` (`Get-PackStateDir` in `lib\common.ps1`). It is created elevated, with only Administrators and SYSTEM (inheritance off). A folder with another owner, or one that anybody else can write to, is refused. The state is not kept inside the pack, because the console runs packs from a temporary copy. `-Undo` checks every recorded rule before it changes any: the rule must still be picked by this pack today, the profile a valid number and every address valid. Otherwise it changes nothing.
 
 ## How the console calls me
 1. Stage 1 (not elevated): `fix.ps1 -DryRun` lists the rules (lines starting `RULE`) and the change, and records nothing. The Admin reads this and says yes or no.

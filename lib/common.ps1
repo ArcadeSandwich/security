@@ -87,6 +87,13 @@ function Test-PortInList([string]$list, [int]$port) {
     return $false
 }
 
+# True when every address netsh lists for a rule is one of the given ranges (Tailscale's by default), in any order
+# and in either notation (netsh may print a range instead of a prefix).
+function Test-RemoteIPWithin([string]$remoteIP, [string[]]$allowed = @('100.64.0.0/10', '100.64.0.0-100.127.255.255', 'fd7a:115c:a1e0::/48', 'fd7a:115c:a1e0::-fd7a:115c:a1e0:ffff:ffff:ffff:ffff:ffff')) {
+    $items = @(($remoteIP -split ',') | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    return ($items.Count -gt 0 -and @($items | Where-Object { $allowed -notcontains $_ }).Count -eq 0)
+}
+
 function Get-OpenRulesForPort([int]$port) {
     Get-InboundRulesNetsh | Where-Object { $_.Enabled -eq 'Yes' -and $_.Action -eq 'Allow' -and (Test-PortInList $_.LocalPort $port) }
 }
