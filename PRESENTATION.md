@@ -3,6 +3,14 @@
 For the Admin, in plain English. Kept current by Security (the lead). The full list is `C:\server\SECURITY-TRACKER.md`.
 Last updated: 2026-10-20 (round 2 under way).
 
+## Done while you slept
+- Built a security tracker (`C:\server\SECURITY-TRACKER.md`) that lists every check, weakness, fix and recheck, for every project.
+- Mapped every open port and every program on the server (12 programs).
+- Mapped every AI agent and bot and what each may change. Two new medium gaps, both in how bug reports flow to the job runner, were sent to the Logging chat.
+- musta.no is entirely behind a Cloudflare Access login, which is good.
+- Started the security tool folder (`C:\server\security`). The fix launcher is written and under review: it will apply only fixes whose files match what Server approved.
+- Approved the design for recovery after a power cut. You will type your Windows password once, in Windows' own window.
+
 ## 1. What was checked
 | Project | Checked so far | Still to check |
 |---|---|---|
