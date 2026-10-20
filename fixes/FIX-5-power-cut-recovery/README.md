@@ -40,13 +40,13 @@ Recommended.
 - Changes: the three tasks' triggers, settings, sign-in type (and Ollama's action). Nothing else.
 - Needs administrator rights (an "At startup" trigger), so it runs only from `console\Security fixes.cmd`, started by the Admin.
 - The services keep running while it applies. The new settings take effect at the next start.
-- Undo: `fix.ps1 -Undo` re-registers each task from the exact XML that the dry run saved in `reports\FIX-5-backup\`. The tasks go back to Logon only, with no password stored.
+- Undo: `fix.ps1 -Undo` re-registers each task from the XML that -Apply saved in the protected state folder. The tasks go back to Logon only, with no password stored.
 
 ## Files
-- `fix.ps1 -DryRun`: saves each task's current XML to `C:\server\security\reports\FIX-5-backup\` and prints what would change, including the .bat each task runs. It changes no task.
-- The backup is taken again just before -Apply, so -Undo always restores the exact task (with its Logon trigger) that -Apply replaced. Once FIX-5 is applied, that pre-fix copy is never overwritten.
-- `fix.ps1 -Apply`: needs elevation and a backup from the dry run. Asks for the Admin's password in Windows' own box, then sets A plus restart-on-failure.
-- `fix.ps1 -Undo`: needs elevation. Restores the backed-up tasks exactly.
+- `fix.ps1 -DryRun`: prints what would change, including the .bat each task runs. It changes nothing and writes nothing.
+- `fix.ps1 -Apply`: needs elevation. It first saves each task's XML, plus a record of the program each one runs, into `C:\ProgramData\SecurityConsole\state\SEC-FIX-5\` (Get-PackStateDir, which only Administrators and SYSTEM can write). It does this only when FIX-5 is not already on the task, so the pre-fix copy is kept. Then it asks for the Admin's password in Windows' own box, and sets A plus restart-on-failure. If Get-PackStateDir is missing, it stops before changing anything.
+- `fix.ps1 -Undo`: needs elevation. It restores each backed-up task only if the XML names one of the three tasks and runs exactly what -Apply recorded; otherwise nothing is undone.
+- The password: it is read once and passed straight to Set-ScheduledTask. An error is reported by its type only, never with its arguments, and the variables and $Error are cleared afterwards.
 - `check.ps1`: read-only. PASS or FAIL for each task (startup trigger, runs without sign-in, restart-on-failure), and shows whether automatic sign-in is on.
 
 ## After applying
@@ -55,3 +55,4 @@ Recommended.
 
 ## Change log
 - 2026-10-20: drafted by Security · Resilience. Not applied and not run elevated.
+- 2026-10-20: Security's review: backups moved to the protected state folder, -Undo checks names and programs, the password is kept out of errors.
