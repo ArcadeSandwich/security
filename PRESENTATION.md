@@ -42,6 +42,8 @@ Last updated: 2026-10-20 (round 2 under way).
 | Medium | Some firewall rules let a program accept anyone; today safe only because of how the programs or the network are set. | Network | Fix pack SEC-FIX-4 |
 | Medium | Two Tailscale rules let every Tailscale device reach every port. | Network | Fix pack SEC-FIX-3 |
 | High | **The stream's virtual machine shows its SRT management page to anyone on your home network, with no login** (port 8123). The machine sits on the home network and has no firewall of its own. | Network (round 2) | Sent to the IRLToolkit chat: make that page local-only, or switch on the machine's firewall |
+| High | **MustaHub's code (arcade-server) lets anyone who reaches it make themselves an admin or change the stream overlay.** Its admin and overlay functions check nobody. If musta.no runs this code, only the Cloudflare login stops it. | Programs (code reading) | Sent to the MustaHub chats; your answer needed: where does arcade-server run? |
+| Medium | The game's voice package uses an image library (sharp) with known holes; no fixed version exists yet, and visitors can't reach it. | Programs | Sent to the Audio chat: upgrade when the fix comes out |
 | Medium | musta.no's email settings have no DMARC record, so others can more easily send email that pretends to come from musta.no. The website itself is well protected (Cloudflare login on everything). | Network | Your step: one DNS record in Cloudflare |
 | Medium | Windows' container DNS and a Hyper-V management rule accept anyone on the home network. | Network | Added to the firewall fix packs |
 | Medium | The job runner's "approved" mark is plain text anyone could write. | Agents | Sent to the Factory chat |
