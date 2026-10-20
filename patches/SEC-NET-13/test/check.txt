@@ -1,0 +1,14 @@
+SEC-NET-13 check (read-only)
+
+Before the patch (expected today):
+  curl -s -o /dev/null -m 5 -w "%{http_code}" http://10.0.0.31:8123/          -> 200
+  curl -s -o /dev/null -m 5 -w "%{http_code}" http://10.0.0.31:8080/api/stream-ids  -> 401 (the API key lock)
+
+After the patch:
+  curl -s -o /dev/null -m 5 -w "%{http_code}" http://10.0.0.31:8123/          -> 000 (cannot connect)
+  multipass exec stream -- curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8123/   -> 200
+  curl -s -o /dev/null -m 5 -w "%{http_code}" http://10.0.0.31:8080/api/stream-ids  -> 401 (unchanged)
+  multipass exec stream -- sudo docker ps --format "{{.Names}} {{.Ports}}"   -> sls-management-ui shows 127.0.0.1:8123->3000/tcp
+
+Dry check of the diff on a scratch copy (done 2026-10-20 by Security · Network):
+  copy the file out with multipass exec ... sudo cat, then: patch --dry-run -p1 < fix.diff   -> applies cleanly
