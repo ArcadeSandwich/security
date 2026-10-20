@@ -46,12 +46,12 @@ Ranks: **high** means someone could get in or something important could be lost;
 ### Prepared for chats that are offline
 | Rank | What it means | Patch |
 |---|---|---|
-| High | **MustaHub's code lets anyone who reaches it make themselves an admin or change the stream overlay.** If musta.no runs this code, only the Cloudflare login stops it. | Patch being prepared for the MustaHub chats (you hand it over) |
+| High | **MustaHub's code lets anyone who reaches it make themselves an admin or change the stream overlay.** If musta.no runs this code, only the Cloudflare login stops it. | **Ready:** every admin and overlay function now checks the login and the admin role (19 tests pass); you hand it over |
 | High | **The IRL stream's git settings would publish MustaHub's passwords and keys** the first time the folder goes on GitHub. Nothing has leaked. | One-line patch for IRLToolkit, to apply before any git setup |
 | High | **Every Minecraft backup goes only to the failing D: drive.** | Patch: a second backup target on the main PC over Tailscale (you set up the login there) |
 | Medium | The stream machine's SRT management page opens for anyone on the home network (its controls still need a key). | Ready: one line makes it local-only |
 | Medium | The IRL stream has no git at all, so nothing to restore from. | Ready: the steps after the git-settings patch |
-| Low | The IRL dashboard trusts a forwarding header; the OBS remote key travels in the web address. | Patches being prepared for IRLToolkit |
+| Low | The IRL dashboard trusts a forwarding header. | **Ready** for IRLToolkit (148 tests pass) |
 
 | Medium | Lore the Dungeon Master writes itself is fed back into its rules. | **Ready:** the lore becomes a fenced data block (tested) |
 
@@ -63,6 +63,7 @@ Ranks: **high** means someone could get in or something important could be lost;
 
 ### Accepted, with the reason
 - **Every chat runs as your Windows account,** so no file permission can hide a key from a chat. The protection is the rules, the logs and replacing keys if one ever leaks.
+- **The OBS remote key travels in the web address**, because phone apps like Moblin can only connect that way. OBS's own password is the real lock, and IRLToolkit changes the key monthly.
 - **Ollama answers your own Tailscale devices without a login**, on purpose (this PC and Tailscale only). The Tailscale access rule (FIX-7) keeps anyone you share with away from it.
 - **Minecraft and Musta's OBS come back only after a sign-in**, because they need a desktop or console window. Automatic sign-in would close this, but it stores your password in the registry, so we recommend leaving it.
 
@@ -80,7 +81,8 @@ Ranks: **high** means someone could get in or something important could be lost;
 7. **GitHub**, for oak-world, ai-workspace and ai-workspace-app: Settings → Branches (or Rules → Rulesets) → add a rule for `main` → tick **Block force pushes** and **Restrict deletions** → Save. On a free account this may need GitHub Pro; if so, tell Server, and the check on this PC stays the lock.
 8. **Windows Update:** the October updates are not installed (newest is from 9 September). Run "Check for updates" at a quiet time, after FIX-5, FIX-9 and their restart test, so the services come back by themselves after the update restart. Consider moving active hours to cover the evening, when the game is used.
 9. **Delivery Optimization:** Settings → Windows Update → Advanced options → Delivery Optimization → "Allow downloads from other PCs" off (the part of FIX-10 that needs no script).
-10. **When IRLToolkit is back:** create the private GitHub repository ArcadeSandwich/irl-stream (a login step) after its git-settings patch.
+10. **MustaHub:** if arcade-server is what runs musta.no, hand `C:\server\security\patches\SEC-PROG-19` and `SEC-PROG-23` to the MustaHub chats. For SEC-PROG-23, add the site's address as a redirect URL in the Twitch developer console (a login step).
+11. **When IRLToolkit is back:** create the private GitHub repository ArcadeSandwich/irl-stream (a login step) after its git-settings patch.
 
 ## Questions for you
 - **Is anything on your Tailscale network besides your own devices?** (Ollama answers every Tailscale device.)
