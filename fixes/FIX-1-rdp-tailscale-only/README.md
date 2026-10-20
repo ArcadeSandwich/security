@@ -1,6 +1,6 @@
 # SEC-FIX-1: Remote Desktop from Tailscale only
 
-Status: reviewed-security
+Status: ready
 
 - **Finding:** W-1 (high). Remote Desktop (port 3389, TCP and UDP) is allowed from any address on every network profile, so any device on the home network can reach the sign-in screen.
 - **What it does:** every enabled inbound allow rule on port 3389 gets Remote IP `100.64.0.0/10` and `fd7a:115c:a1e0::/48` (Tailscale's IPv4 and IPv6 ranges). Remote Desktop stays on; it works from the Admin's Tailscale devices only.

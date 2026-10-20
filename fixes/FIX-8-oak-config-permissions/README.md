@@ -7,7 +7,7 @@
 - **Windows permission:** administrator (it changes a file's permissions). Run it only from `console\Security fixes.cmd`.
 - **Leaves as they are:** four account SIDs on the file that Windows can't name (inherited from C:\server; they are not local accounts). Most likely accounts left from an earlier Windows install or another PC; the question is on the Admin's list, and removing them is a separate decision.
 
-Status: reviewed-security
+Status: ready
 
 ## What each mode does
 - `-DryRun` (no admin needed): shows the file's current permissions, what would change, and the list of old copies below. Changes nothing.

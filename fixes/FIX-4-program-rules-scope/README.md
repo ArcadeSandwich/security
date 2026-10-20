@@ -1,6 +1,6 @@
 # SEC-FIX-4: limit the wide program rules and the container DNS rules
 
-Status: reviewed-security
+Status: ready
 
 - **Findings:** W-10 and W-2 (medium), and SEC-NET-15 (medium).
   - W-10 and W-2: program rules allow any address for ollama.exe, obs64.exe (OBS), obs-browser-page.exe, node.exe, bun.exe and bunx.exe. Today they are safe only because those programs listen narrowly, or because the home network is Public.

@@ -1,6 +1,6 @@
 # FIX-5 Power-cut recovery (SEC-FIX-5)
 
-Status: reviewed-security (design A approved by Server, 2026-10-20)
+Status: ready
 
 ## What and why
 - Finding: **W-22, high** (Security · Resilience, round 1, INS-015, log commit fc1f783f in oak-world).
@@ -53,7 +53,7 @@ Recommended.
 Server plans it and the Admin starts the restart. It is done at a quiet time, the same day FIX-5 is applied.
 1. Restart the PC and do not sign in.
 2. Within 3 minutes, from another device over Tailscale or after signing in, check the following. The proof that nobody was signed in is the task start times, which come before the sign-in.
-   - Ports 3000 (game), 3001 (old Work), 3004 (Workplace) and 11434 (Ollama) are listening.
+   - Ports 3000 (game), 3001 (the Workplace), 3004 (the old Work program) and 11434 (Ollama) are listening.
    - The tunnel is up: arcadesandwich.com loads the access door.
 3. The game's AI answers one turn. The keys come from the user environment, now loaded without a sign-in.
 4. `tools\deploy.ps1` can still restart the game: node now runs in session 0, while chats deploy from session 1.

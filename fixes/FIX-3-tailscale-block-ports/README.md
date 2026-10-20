@@ -1,6 +1,6 @@
 # SEC-FIX-3: block the Windows ports Tailscale devices don't need
 
-Status: reviewed-security
+Status: ready
 
 - **Finding:** W-9 (medium). Two local rules named "Tailscale-In" allow every protocol and port, from any address, to this PC's Tailscale addresses. Any device on the tailnet, including people shared in later, reaches file sharing, NetBIOS, the Hyper-V console and the rest.
 - **Why block rules, not a change to Tailscale-In:** tailscaled creates and recreates "Tailscale-In" itself, so a narrowed rule would come back wide. In Windows Firewall a block rule wins over an allow rule. So this pack leaves Tailscale-In alone and adds block rules that apply only on the Tailscale local addresses (`100.64.0.0/10`, `fd7a:115c:a1e0::/48`).
