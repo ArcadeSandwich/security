@@ -97,6 +97,7 @@ Some apps you may not use still hold saved sign-ins on this PC: Codex, the Ollam
 Free memory on cadeyserver fell to about 0.6 GB of 16 GB overnight. The chats (about 29 Claude processes, about 6.2 GB together, most of them 330 to 380 MB each) plus Minecraft (about 2.8 GB, normal) use most of it. Nothing is leaking or running away. Security paused every live test below the 1 GB safety line; code reading and patches went on. In the morning you can close the chats that have finished their work, which frees the most memory.
 
 ## Questions for you
+- **Does a copy of the old Work program (oak-world-work) or its job runner still run on your main PC?** Until Logging's fix lands, the old runner would still accept the text "Approved: owner" as an approval.
 - **Is anything on your Tailscale network besides your own devices?** (Ollama answers every Tailscale device.)
 - **Where does arcade-server (MustaHub) run, and is it what serves musta.no?** (Q-ARCADE-DEPLOYED)
 - **The MAIN and Absurdity boxes:** limit their commands to an allowed list (our pick), have them ask you before each command, or accept the risk? (Q-AG17-BOXES)
