@@ -1,0 +1,17 @@
+--- a/plugins/DriveBackupV2/config.yml
++++ b/plugins/DriveBackupV2/config.yml
+@@ -12 +12 @@
+-keep-count: 20
++keep-count: 4
+@@ -72,4 +72,4 @@
+-  enabled: false
+-  hostname: "ftp.example.com"
+-  port: 21
+-  sftp: false
++  enabled: true
++  hostname: "MAIN-PC-TAILSCALE-ADDRESS"
++  port: 22
++  sftp: true
+@@ -77 +77 @@
+-  username: "Username"
++  username: "MAIN-PC-BACKUP-USER"

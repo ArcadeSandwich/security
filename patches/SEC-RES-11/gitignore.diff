@@ -1,0 +1,12 @@
+--- a/.gitignore
++++ b/.gitignore
+@@ -1 +1,9 @@
+ private/
++private-musta/
++data/
++data-musta/
++recordings-musta/
++logs/
++.claude/
++node_modules/
++*.log
