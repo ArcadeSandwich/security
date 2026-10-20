@@ -39,7 +39,8 @@ Ranks: **high** means someone could get in or something important could be lost;
 |---|---|---|
 | High | **The Control chat could change any file and push to GitHub, and the Plan boxes had full tools while reading players' text.** | **Fixed and rechecked for both** (everything blocked except reading and listing, key files blocked, old chat retired). Logging is also hardening the secret check on Control's tracker rows (it missed encoded or key-shaped text) |
 | High (less likely) | The MAIN and Absurdity boxes on the Work page keep full tools. | **Your choice** (desk question Q-AG17-BOXES) |
-| Medium | MAIN's start-prompt tool sends text into any chat that has the right title. | With Logging |
+| Medium | The game's buttons that change things (saves, photos, voice) trust your login cookie alone; another page on an arcadesandwich.com subdomain could press them for you. Low today, because no such page exists. | With the game's Network chat: check where each request comes from |
+| Low | The AI Workspace app has Electron's safety switches ("fuses") off. | With the AI Workspace Manager |
 | Medium | The AI Workspace app's link handling and update check have gaps. | With the AI Workspace Manager |
 | Medium | The game's voice package uses an image library with known holes; no fixed version exists yet, and visitors can't reach it. | Audio upgrades it when a fix comes out |
 
