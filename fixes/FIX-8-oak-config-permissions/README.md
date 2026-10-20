@@ -1,19 +1,19 @@
-# FIX-8: limit who can read oak-config.json, and the Admin's list of old copies
+# FIX-8: limit who can read oak-config.json and access.json, and the Admin's list of old copies
 
-- **What:** `oak-config.json` holds the game's AI keys and the Lab code. Today every account on this PC can read it, and every signed-in account can change it (BUILTIN\Users: read; Authenticated Users: modify). This pack limits it to the Admin's own account (CadeyServer, Modify), SYSTEM and Administrators. It never reads or prints the file's content.
+- **What:** `oak-config.json` holds the game's AI keys and the Lab code. Today every account on this PC can read it, and every signed-in account can change it (BUILTIN\Users: read; Authenticated Users: modify). This pack limits it to the Admin's own account (CadeyServer, Modify), SYSTEM and Administrators. `access.json` holds the guest access codes and has the same open permissions, so the pack limits it the same way (Security · Lead, 2026-10-20). It never reads or prints either file's content.
 - **Why:** finding W-4 (SECURITY-TRACKER). Today the keys have one protection (out of git); this adds a second (only the Admin's account can read them). Found by Security · Secrets, SEC-SECRETS-5a, 2026-10-20.
 - **Risk:** low. The game (and start-live.bat) and Work/Workplace run as CadeyServer, "Limited" (not elevated), so the Administrators entry does not count for them. That is why the pack grants CadeyServer explicitly, BEFORE it removes anything. The AI chats also run as CadeyServer, so the Playbook's check.js still reads the file. If anything goes wrong, `-Undo` puts back exactly the permissions `-Apply` saved.
 - **What it does not do:** every AI chat on this PC runs as the same Windows account (CadeyServer), so this limit protects the file from other local accounts and processes, not from the chats themselves. The real protection against leaks stays git-ignore plus changing (rotating) the keys.
 - **Windows permission:** administrator (it changes a file's permissions). Run it only from `console\Security fixes.cmd`.
 - **Leaves as they are:** four account SIDs on the file that Windows can't name (inherited from C:\server; they are not local accounts). Most likely accounts left from an earlier Windows install or another PC; the question is on the Admin's list, and removing them is a separate decision.
 
-Status: reviewed-security
+Status: draft
 
 ## What each mode does
 - `-DryRun` (no admin needed): shows the file's current permissions, what would change, and the list of old copies below. Changes nothing.
-- `-Apply`: saves the current permissions with `icacls oak-config.json /save` to `C:\ProgramData\SecurityConsole\state\FIX-8-oak-config-permissions\oak-config.acl`, a folder only Administrators and SYSTEM can write, so no chat can change what `-Undo` applies (it never overwrites an earlier save). Then it grants CadeyServer Modify, turns off inheritance (keeping the entries) and removes BUILTIN\Users and Authenticated Users.
-- `-Undo`: refuses a saved file that names anything other than oak-config.json; otherwise restores the saved permissions with `icacls <folder> /restore` and turns inheritance back on.
-- `check.ps1`: read-only. It passes when inheritance is off; there is no Users, Authenticated Users or Everyone entry; the accounts of the "Startup - Oak World Game" and "Startup - Oak World Work" tasks each have an explicit read entry and no deny; and the game still answers on 127.0.0.1:3000. `check.ps1 -Undone` checks an undo instead.
+- `-Apply`: saves each file's current permissions with `icacls <file> /save` to its own file, `oak-config.json.acl` and `access.json.acl`, in `C:\ProgramData\SecurityConsole\state\FIX-8-oak-config-permissions\`, a folder only Administrators and SYSTEM can write, so no chat can change what `-Undo` applies (it never overwrites an earlier save, and changes nothing unless both saves are good). Then, for each file, it grants CadeyServer Modify, turns off inheritance (keeping the entries) and removes BUILTIN\Users and Authenticated Users.
+- `-Undo`: checks both saves first and refuses one that names any file other than its own; otherwise restores the saved permissions with `icacls <folder> /restore` and turns inheritance back on.
+- `check.ps1`: read-only, for both files. It passes when inheritance is off; there is no Users, Authenticated Users or Everyone entry; the accounts of the "Startup - Oak World Game" and "Startup - Oak World Work" tasks each have an explicit read entry and no deny; and the game still answers on 127.0.0.1:3000. `check.ps1 -Undone` checks an undo instead.
 
 ## The Admin's own steps (no script does these)
 1. Run the pack from `console\Security fixes.cmd`, then play one turn, to confirm the game still reads its keys.
