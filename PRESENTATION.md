@@ -55,7 +55,7 @@ Ranks: **high** means someone could get in or something important could be lost;
 
 | Medium | Lore the Dungeon Master writes itself is fed back into its rules. | **Ready:** the lore becomes a fenced data block (tested) |
 
-| Medium | Nothing tells you when a service (the game, the Workplace, Ollama, the stream, Minecraft) goes down. | Being built by the AI Workspace Manager inside the Workplace: it posts "down" and "back" to your desk. Its limit: if the whole PC is down, nothing on it can tell you (that would need the main PC or a phone service later) |
+| Medium | Nothing tells you when a service (the game, the Workplace, Ollama, the stream, Minecraft) goes down. | **Live** inside the Workplace (recheck queued): it posts "down" and "back" to your desk. Its limit: if the whole PC is down, nothing on it can tell you (that would need the main PC or a phone service later) |
 | Medium | The October Windows updates are not installed. | Your step (Windows Update) |
 
 ### Clean in round 3
