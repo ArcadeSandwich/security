@@ -1,6 +1,6 @@
 # SEC-FIX-10: require SMB signing (and one Settings step for Delivery Optimization)
 
-Status: draft
+Status: reviewed-security
 
 - **Findings:** SEC-PC-6 and SEC-NET-17 (low).
   - The PC's file-sharing server (SMB) doesn't require signing, so on a network path someone could tamper with or relay SMB traffic.
