@@ -82,4 +82,10 @@ Last updated: 2026-10-20 (round 2 under way).
    - After two weeks with no surprises, change `p=none` to `p=quarantine`.
 7. **Tailscale**: paste the access rule from FIX-7's README (shared people reach only port 7420), after backing up the current one as the README says.
 8. **musta.no questions** (SEC-RES-13): where is it hosted, where is its code kept besides GitHub, is there a database or uploads outside git, and who can restore it?
-9. **Questions from the agents check**: which permission mode do Server, the game chats and the Control chat run in? Is GitHub's branch protection on? What are the four unnamed accounts with permissions on C:\server?
+9. **GitHub branch protection on main** (the server-side stop that no chat can skip). On github.com, signed in as ArcadeSandwich, for each repository (oak-world, ai-workspace, ai-workspace-app):
+   1. Open the repository, then **Settings**, then **Branches** (or **Rules → Rulesets**).
+   2. **Add branch ruleset** (or "Add rule"), name it `main`, target branch `main`.
+   3. Tick **Block force pushes** and **Restrict deletions**.
+   4. Save.
+   Two honest limits: every chat pushes with your account, so GitHub can't tell the Control chat from the others; this protects main from being rewritten or deleted, not from a normal push (the hook on this PC handles that). And on a free account, rules on private repositories may need GitHub Pro; if the page says so, tell Server and we keep the hook as the lock.
+10. **Questions from the agents check**: which permission mode do Server, the game chats and the Control chat run in? Is GitHub's branch protection on? What are the four unnamed accounts with permissions on C:\server?
