@@ -1,3 +1,4 @@
+$env:PSModulePath = "$env:windir\System32\WindowsPowerShell\v1.0\Modules" # R1: only the system modules, never a planted one (set before anything autoloads)
 # SEC-INFRA-5, stage 1 (normal rights): list ready packs, show each README, run its dry run, ask yes or no.
 # Then start apply.ps1 ONCE, elevated, with only the chosen "pack=hash" pairs; it checks each pack and hash again.
 $ErrorActionPreference = 'Stop'
@@ -5,13 +6,13 @@ $ErrorActionPreference = 'Stop'
 
 Write-Log "=== Security fixes console started by $(Get-Who) ==="
 # Only committed tools may run: any uncommitted change in fixes, console or probe stops the console.
-$dirty = & git -C $Root status --porcelain -- fixes console probe 2>&1
+$dirty = & $Git -C $Root status --porcelain -- fixes console probe 2>&1
 if ($LASTEXITCODE -ne 0 -or $dirty) {
   Write-Log 'STOPPED: the security folder has uncommitted changes (or git could not read it), so no fix is offered. Ask Security to commit or remove them first.'
   foreach ($l in $dirty) { Write-Log "  $l" }
   exit 1
 }
-Write-Log "Security tools at commit $(& git -C $Root log -1 --format=%h)"
+Write-Log "Security tools at commit $(& $Git -C $Root log -1 --format=%h); APPROVED.sha256 is $(if (Test-Path -LiteralPath $ApprovedFile) { Get-FileSha $ApprovedFile } else { 'missing' }) (compare both with the desk card)"
 
 $ready = Get-ReadyPacks
 $chosen = @()
@@ -50,7 +51,7 @@ if ($undo) { $argList += '-UndoMenu' }
 if (-not (Test-ConsoleApproved)) { Write-Log 'STOPPED: console\apply.ps1 or common.ps1 is not the approved version (APPROVED.sha256). Nothing was applied.'; exit 1 }
 Write-Log "Asking Windows for one elevated window: $(($chosen | ForEach-Object { $_.Split('=')[0] }) -join ', ')$(if ($deep) { ' + deep probe' })"
 try {
-  $p = Start-Process powershell.exe -Verb RunAs -ArgumentList $argList -Wait -PassThru
+  $p = Start-Process "$PSHOME\powershell.exe" -Verb RunAs -ArgumentList $argList -Wait -PassThru
   Write-Log "Elevated window finished (exit $($p.ExitCode)). Results are in $(Get-LogFile)"
 } catch {
   Write-Log 'Windows permission was refused or cancelled: nothing was applied.'

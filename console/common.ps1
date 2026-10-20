@@ -8,8 +8,11 @@ $HashRe = '^[0-9A-F]{64}$'
 $ApprovedFile = Join-Path $FixesDir 'APPROVED.sha256'
 $ConsoleData = Join-Path $env:ProgramData 'SecurityConsole' # admin-only: run copies and pack state
 $StateRoot = Join-Path $ConsoleData 'state'
+$LogRoot = Join-Path $ConsoleData 'logs' # the elevated window logs here (admin-only), then copies the log out
+$Git = Join-Path $env:ProgramFiles 'Git\cmd\git.exe' # R1: external tools by full path
 
 function Get-LogFile {
+  if (Test-Elevated) { Initialize-AdminOnlyDir $ConsoleData; Initialize-AdminOnlyDir $LogRoot; return Join-Path $LogRoot "$(Get-Date -Format 'yyyy-MM-dd')-console.log" }
   $dir = Join-Path (Join-Path $Root 'reports') (Get-Date -Format 'yyyy-MM-dd')
   if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir | Out-Null }
   Join-Path $dir 'console.log'
@@ -76,7 +79,7 @@ function Invoke-PackScript([string]$base, [string]$name, [string]$script, [strin
   $path = Join-Path (Join-Path (Join-Path $base 'fixes') $name) $script
   $psArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $path)
   if ($mode) { $psArgs += "-$mode" }
-  $out = & powershell.exe @psArgs 2>&1
+  $out = & "$PSHOME\powershell.exe" @psArgs 2>&1
   $code = $LASTEXITCODE
   foreach ($l in $out) { Write-Log "  [$name $script $mode] $l" }
   return ($code -eq 0)
@@ -129,4 +132,35 @@ function Copy-Approved([string[]]$rels, [string]$dest) {
     if (-not (Test-Approved $rel $dest)) { Write-Log "  copy of $rel does not match APPROVED.sha256"; return $false }
   }
   return $true
+}
+
+# ---- copying out of the admin-only folders, as administrator, into reports (which normal users can write to) ----
+# Refuses when the target or any folder on the way is a reparse point (a junction or link could aim the copy anywhere).
+function Test-NoReparse([string]$path) {
+  $p = $path
+  while ($p -and $p.Length -ge $Root.Length) {
+    if (Test-Path -LiteralPath $p) { if ((Get-Item -LiteralPath $p -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { return $false } }
+    $p = Split-Path -Parent $p
+  }
+  return $true
+}
+function Copy-OutSafely([string]$from, [string]$to) {
+  foreach ($f in Get-ChildItem -LiteralPath $from -File -Recurse) {
+    $dest = Join-Path $to $f.FullName.Substring($from.Length + 1)
+    if (-not (Test-NoReparse $dest)) { Write-Log "NOT COPIED (a link is in the way): $dest"; continue }
+    $d = Split-Path -Parent $dest
+    if (-not (Test-Path -LiteralPath $d)) { [void][IO.Directory]::CreateDirectory($d) }
+    if (-not (Test-NoReparse $dest)) { Write-Log "NOT COPIED (a link is in the way): $dest"; continue }
+    Copy-Item -LiteralPath $f.FullName -Destination $dest -Force
+  }
+}
+function Copy-LogOut {
+  $src = Get-LogFile
+  $dest = Join-Path (Join-Path (Join-Path $Root 'reports') (Get-Date -Format 'yyyy-MM-dd')) 'console.log'
+  if (-not (Test-NoReparse $dest)) { Write-Host "The log stays in $src (a link is in the way of reports\)."; return }
+  $d = Split-Path -Parent $dest
+  if (-not (Test-Path -LiteralPath $d)) { [void][IO.Directory]::CreateDirectory($d) }
+  if (-not (Test-NoReparse $dest)) { Write-Host "The log stays in $src (a link is in the way of reports\)."; return }
+  Add-Content -LiteralPath $dest -Value (Get-Content -LiteralPath $src) -Encoding UTF8
+  Clear-Content -LiteralPath $src
 }

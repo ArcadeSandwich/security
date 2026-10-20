@@ -2,6 +2,7 @@
 # -Packs holds "pack=hash" pairs (the fix.ps1 hash stage 1 showed for the dry run). -UndoMenu offers packs that have state.
 # Everything runs from a fresh admin-only copy under C:\ProgramData\SecurityConsole\<run id>; the copy is deleted at the end.
 param([string]$Packs = '', [switch]$Deep, [switch]$UndoMenu)
+$env:PSModulePath = "$env:windir\System32\WindowsPowerShell\v1.0\Modules" # R1: only the system modules, never a planted one (set before anything autoloads)
 $ErrorActionPreference = 'Stop'
 
 # Check this script and common.ps1 against APPROVED.sha256 BEFORE loading common.ps1.
@@ -72,16 +73,20 @@ try {
   if ($Deep) {
     if ((Test-ProbeApproved) -and (Copy-Approved (Get-ProbeFiles) $runDir)) {
       Write-Log 'Running the deep probe (read-only)'
-      $out = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $runDir 'probe\probe.ps1') -Deep 2>&1
+      $out = & "$PSHOME\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File (Join-Path $runDir 'probe\probe.ps1') -Deep 2>&1
       foreach ($l in $out) { Write-Log "  [probe] $l" }
     } else { Write-Log 'REFUSED deep probe: missing or not approved (APPROVED.sha256)'; $failed++ }
   }
 } finally {
+  # R2: the deep probe writes its reports inside the copy; bring them out before the copy goes.
+  $probeReports = Join-Path $runDir 'reports'
+  if (Test-Path -LiteralPath $probeReports) { Copy-OutSafely $probeReports (Join-Path $Root 'reports') }
   # Only this run's own folder, checked by name, is removed.
   if ($runDir -like (Join-Path $ConsoleData 'run-*') -and (Test-Path -LiteralPath $runDir)) { Remove-Item -LiteralPath $runDir -Recurse -Force }
   Write-Log "Run copy removed: $(-not (Test-Path -LiteralPath $runDir))"
 }
 Write-Log "--- elevated window done: $failed problem(s) ---"
+Copy-LogOut
 Write-Host ''
 Write-Host 'Press Enter to close this window.'
 [void][Console]::ReadLine()
