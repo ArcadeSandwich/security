@@ -41,7 +41,9 @@ Last updated: 2026-10-20 (round 2 under way).
 | Unknown | Where musta.no is hosted and how it is backed up is not visible from this PC. | Resilience, Agents | Four questions for you |
 | Medium | Some firewall rules let a program accept anyone; today safe only because of how the programs or the network are set. | Network | Fix pack SEC-FIX-4 |
 | Medium | Two Tailscale rules let every Tailscale device reach every port. | Network | Fix pack SEC-FIX-3 |
-| Medium | The stream's virtual machine sits directly on the home network, outside the Windows firewall. | Network (round 2) | Being checked (SEC-NET-8) |
+| High | **The stream's virtual machine shows its SRT management page to anyone on your home network, with no login** (port 8123). The machine sits on the home network and has no firewall of its own. | Network (round 2) | Sent to the IRLToolkit chat: make that page local-only, or switch on the machine's firewall |
+| Medium | musta.no's email settings have no DMARC record, so others can more easily send email that pretends to come from musta.no. The website itself is well protected (Cloudflare login on everything). | Network | Your step: one DNS record in Cloudflare |
+| Medium | Windows' container DNS and a Hyper-V management rule accept anyone on the home network. | Network | Added to the firewall fix packs |
 | Medium | The job runner's "approved" mark is plain text anyone could write. | Agents | Sent to the Factory chat |
 | Medium | Lore the Dungeon Master writes itself is fed back into its rules. | Agents | Sent to the Dungeon Master chat |
 | Medium | The AI Workspace app's link handling and update check have gaps. | Programs, Secrets | Sent to the AI Workspace Manager |
