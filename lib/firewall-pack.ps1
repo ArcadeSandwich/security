@@ -71,6 +71,19 @@ function Write-PackLog($stateDir, [string]$line) {
     Write-Host $line
 }
 
+# SEC-INFRA-9: baseline.json is the undo point. The first -Apply copies the dry run into it; a later -Apply only adds
+# rules it doesn't hold yet (each with its state from before its own first change). blocksPresent is kept from the first.
+function Update-PackBaseline([string]$statePath, [string]$basePath) {
+    $now = Get-Content -Raw $statePath | ConvertFrom-Json
+    if (-not (Test-Path $basePath)) { Copy-Item -LiteralPath $statePath -Destination $basePath; return }
+    $base = Get-Content -Raw $basePath | ConvertFrom-Json
+    $known = @($base.rules | ForEach-Object { "$($_.id)" })
+    $add = @($now.rules | Where-Object { $known -notcontains "$($_.id)" })
+    if ($add.Count -eq 0) { return }
+    $merged = [ordered]@{ pack = $base.pack; folder = $base.folder; time = $base.time; rules = @(@($base.rules) + $add); blocksPresent = @($base.blocksPresent) }
+    $merged | ConvertTo-Json -Depth 6 | Out-File -Encoding utf8 $basePath
+}
+
 function Get-TargetText($t) {
     if ($t.Block) { return "add block rules for $(($t.Block | ForEach-Object { "$($_.Protocol) $($_.LocalPort)" }) -join ', ') on local address $($t.LocalAddress -join ', ')" }
     $what = if ($t.Port) { "rules on port $($t.Port)" } elseif ($t.NamePrefix) { "rules named '$($t.NamePrefix)...'" } else { "rules for $($t.Programs -join ', ')" }
@@ -103,10 +116,18 @@ function Invoke-FirewallPack($Pack, [bool]$DryRun, [bool]$Apply, [bool]$Undo) {
 
     $stateDir = Get-PackStateDir $Pack.Folder
     $statePath = Join-Path $stateDir 'dryrun.json'
+    $basePath = Join-Path $stateDir 'baseline.json'
     $blockNames = Get-PackBlockNames $Pack
     $group = "SecurityConsole $($Pack.Id)"
 
     if ($DryRun) {
+        # SEC-INFRA-9: once a pack has changed anything, its first recorded state is the undo point and is never
+        # overwritten. Packs applied before baseline.json existed: their last dry run (taken just before -Apply) becomes it.
+        $logPath = Join-Path $stateDir 'log.txt'
+        if (-not (Test-Path $basePath) -and (Test-Path $statePath) -and (Test-Path $logPath) -and (Select-String -LiteralPath $logPath -Pattern ' applied to | added block rule ' -Quiet)) {
+            Copy-Item -LiteralPath $statePath -Destination $basePath
+            Write-PackLog $stateDir "$($Pack.Id) kept the dry run from before the first -Apply as the undo point (baseline.json)"
+        }
         $state = Get-PackRuleState $Pack
         $existing = @($blockNames | Where-Object { Get-NetFirewallRule -Name $_ -ErrorAction SilentlyContinue })
         [ordered]@{ pack = $Pack.Id; folder = $Pack.Folder; time = (Get-Date).ToString('s'); rules = $state; blocksPresent = $existing } | ConvertTo-Json -Depth 6 | Out-File -Encoding utf8 $statePath
@@ -118,6 +139,7 @@ function Invoke-FirewallPack($Pack, [bool]$DryRun, [bool]$Apply, [bool]$Undo) {
 
     if (-not (Test-Path $statePath)) { Write-Host 'No recorded dry run. Run -DryRun elevated first. Nothing changed.'; exit 3 }
     $saved = Get-Content -Raw $statePath | ConvertFrom-Json
+    if ($Undo -and (Test-Path $basePath)) { $saved = Get-Content -Raw $basePath | ConvertFrom-Json }   # SEC-INFRA-9: undo to the first state
     if ($saved.pack -ne $Pack.Id -or $saved.folder -ne $Pack.Folder) { Write-Host 'The recorded dry run is for another pack. Nothing changed.'; exit 3 }
     $recorded = @($saved.rules | ForEach-Object { [ordered]@{ target = [int]$_.target; id = "$($_.id)"; name = "$($_.name)"; enabled = [bool]$_.enabled; profile = [int]$_.profile; remoteAddress = @($_.remoteAddress | ForEach-Object { "$_" }) } })
     $blocksBefore = @($saved.blocksPresent | ForEach-Object { "$_" })
@@ -125,6 +147,7 @@ function Invoke-FirewallPack($Pack, [bool]$DryRun, [bool]$Apply, [bool]$Undo) {
     if ($Apply) {
         if (((Get-Date) - [datetime]$saved.time).TotalHours -gt 24) { Write-Host 'The recorded dry run is older than 24 hours. Run -DryRun again. Nothing changed.'; exit 3 }
         if (((Get-PackRuleState $Pack) | ConvertTo-Json -Depth 6 -Compress) -ne ($recorded | ConvertTo-Json -Depth 6 -Compress)) { Write-Host 'The rules changed since the dry run. Run -DryRun again. Nothing changed.'; exit 3 }
+        Update-PackBaseline $statePath $basePath   # SEC-INFRA-9: before the first change
         foreach ($r in $recorded) {
             $t = $Pack.Targets[$r.target]
             if ($t.Change -eq 'disable') { Set-NetFirewallRule -Name $r.id -Enabled False } else { Set-NetFirewallRule -Name $r.id -RemoteAddress $t.Scope }
@@ -143,10 +166,12 @@ function Invoke-FirewallPack($Pack, [bool]$DryRun, [bool]$Apply, [bool]$Undo) {
 
     if ($Undo) {
         # Validate everything first, so Undo never stops halfway.
-        $today = @(Get-PackRuleState $Pack | ForEach-Object { "$($_.target)|$($_.id)" })
+        # SEC-INFRA-9: an applied "RemoteAnyOnly" rule is no longer picked today (its remote isn't Any any more), so the
+        # check is that each recorded rule still exists, is an inbound allow rule, and belongs to a real target of this pack.
         foreach ($r in $recorded) {
             if ($r.target -lt 0 -or $r.target -ge $Pack.Targets.Count -or $Pack.Targets[$r.target].Block) { Write-Host "Refused: bad target for $($r.id). Nothing changed."; exit 3 }
-            if ($today -notcontains "$($r.target)|$($r.id)") { Write-Host "Refused: recorded rule $($r.id) is not picked by this pack today. Nothing changed."; exit 3 }
+            $live = Get-NetFirewallRule -Name $r.id -ErrorAction SilentlyContinue
+            if (-not $live -or "$($live.Direction)" -ne 'Inbound' -or "$($live.Action)" -ne 'Allow') { Write-Host "Refused: recorded rule $($r.id) is gone or is not an inbound allow rule. Nothing changed."; exit 3 }
             if ($r.profile -lt 0 -or $r.profile -gt 7) { Write-Host "Refused: profile value $($r.profile) for $($r.id) does not parse. Nothing changed."; exit 3 }
             if ($r.remoteAddress.Count -eq 0 -or @($r.remoteAddress | Where-Object { -not (Test-RemoteAddressValue $_) }).Count) { Write-Host "Refused: a remote address for $($r.id) does not parse. Nothing changed."; exit 3 }
         }
@@ -161,5 +186,7 @@ function Invoke-FirewallPack($Pack, [bool]$DryRun, [bool]$Apply, [bool]$Undo) {
             $rule = Get-NetFirewallRule -Name $n -ErrorAction SilentlyContinue
             if ($rule -and $rule.Group -eq $group -and "$($rule.Action)" -eq 'Block') { Remove-NetFirewallRule -Name $n; Write-PackLog $stateDir "$($Pack.Id) removed block rule $n" }
         }
+        # SEC-INFRA-9: everything is back as first recorded, so the next -Apply starts a new undo point.
+        if (Test-Path $basePath) { Remove-Item -LiteralPath $basePath; Write-PackLog $stateDir "$($Pack.Id) undo point (baseline.json) cleared after the undo" }
     }
 }

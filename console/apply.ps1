@@ -91,7 +91,7 @@ try {
 }
 } catch {
   $stopped = $true
-  $msg = "STOPPED by an error, so the packs after this point were not run: $($_.Exception.Message) (apply.ps1 line $($_.InvocationInfo.ScriptLineNumber))"
+  $msg = "STOPPED by an error, so the packs after this point were not run: $($_.Exception.Message) ($(Split-Path -Leaf "$($_.InvocationInfo.ScriptName)") line $($_.InvocationInfo.ScriptLineNumber))"
   try { Write-Log $msg } catch { Write-Host $msg -ForegroundColor Red }
 }
 try { Write-Log "--- elevated window done: $failed problem(s)$(if ($stopped) { ', stopped by an error' }) ---"; Copy-LogOut } catch { Write-Host "The log could not be copied out: $($_.Exception.Message)" -ForegroundColor Red }

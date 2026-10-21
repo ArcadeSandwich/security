@@ -24,7 +24,13 @@ $statePath = Join-Path $stateDir 'dryrun.json'
 function Log([string]$line) { "$(Get-Date -Format s) $env:USERNAME $line" | Out-File -Append -Encoding utf8 (Join-Path $stateDir 'log.txt'); Write-Host $line }
 function Current { [bool](Get-SmbServerConfiguration).RequireSecuritySignature }
 
+$basePath = Join-Path $stateDir 'baseline.json'   # SEC-INFRA-9: the undo point, written once before the first change
+
 if ($DryRun) {
+    $logPath = Join-Path $stateDir 'log.txt'
+    if (-not (Test-Path $basePath) -and (Test-Path $statePath) -and (Test-Path $logPath) -and (Select-String -LiteralPath $logPath -Pattern ' applied: ' -Quiet)) {
+        Copy-Item -LiteralPath $statePath -Destination $basePath; Log "$Id kept the dry run from before the first -Apply as the undo point (baseline.json)"
+    }
     $now = Current
     [ordered]@{ pack = $Id; folder = $Folder; time = (Get-Date).ToString('s'); requireSecuritySignature = $now } | ConvertTo-Json | Out-File -Encoding utf8 $statePath
     Log "$Id dry run (recorded):"
@@ -40,12 +46,18 @@ if ($saved.requireSecuritySignature -isnot [bool]) { Write-Host 'The recorded va
 if ($Apply) {
     if (((Get-Date) - [datetime]$saved.time).TotalHours -gt 24) { Write-Host 'The recorded dry run is older than 24 hours. Run -DryRun again. Nothing changed.'; exit 3 }
     if ((Current) -ne $saved.requireSecuritySignature) { Write-Host 'The setting changed since the dry run. Run -DryRun again. Nothing changed.'; exit 3 }
+    if (-not (Test-Path $basePath)) { Copy-Item -LiteralPath $statePath -Destination $basePath }   # SEC-INFRA-9
     Set-SmbServerConfiguration -RequireSecuritySignature $true -Force
     Log "$Id applied: RequireSecuritySignature = True (was $($saved.requireSecuritySignature))"
     return
 }
 
 if ($Undo) {
+    if (Test-Path $basePath) {   # SEC-INFRA-9: undo to the value from before the first -Apply
+        $saved = Get-Content -Raw $basePath | ConvertFrom-Json
+        if ($saved.pack -ne $Id -or $saved.requireSecuritySignature -isnot [bool]) { Write-Host 'The undo point does not parse. Nothing changed.'; exit 3 }
+    }
     Set-SmbServerConfiguration -RequireSecuritySignature ([bool]$saved.requireSecuritySignature) -Force
     Log "$Id undone: RequireSecuritySignature = $($saved.requireSecuritySignature)"
+    if (Test-Path $basePath) { Remove-Item -LiteralPath $basePath; Log "$Id undo point (baseline.json) cleared after the undo" }
 }
