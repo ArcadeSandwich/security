@@ -85,11 +85,22 @@ The game passes `/stream` and `/api/stream/*` to the same dashboard **before its
   - Then nothing on arcadesandwich.com reaches the dashboard any more.
 - **Option B:** add `arcadesandwich.com/stream*` and `arcadesandwich.com/api/stream/*` to the same Access app as extra domains, with the same three bypass apps for `arcadesandwich.com/api/stream/pub/*`, `.../api/stream/ws/obsremote/*` and `.../api/stream/overlay`. It works without touching the game, but it means two sets of apps to keep in step, and the game's door still runs after Access for those paths.
 
+## Testing
+To let someone new test, **add their email to the main app's Allow policy**, and remove it afterwards. Never switch a policy to Bypass Everyone, not even for a quick test: that leaves live.* open behind only the dashboard password.
+
 ## Undo
-- In Zero Trust, Access, Applications, delete the four apps (or set the main app's policy to Bypass Everyone for a quick test). The dashboard's own password stays.
-- Remove the live.* public hostname from the tunnel if live.* should go away.
-- Option A: the game chat restores the pass-through, and the Twitch Redirect URL goes back.
-- Option B: delete the extra domains and apps.
+**Undoing the Access login (always in this order):**
+1. **First** remove the `live.arcadesandwich.com` public hostname from the tunnel (Networks, Tunnels, the tunnel, Public hostnames). This isn't optional: it must go whenever the apps go.
+2. **Then** delete the four Access apps (Zero Trust, Access, Applications).
+
+Never the other way round: with the apps gone and the hostname still on the tunnel, live.* is open to the internet behind only the dashboard password.
+
+**Undoing Server's step (a2, the game's pass-through restored):**
+- This **returns arcadesandwich.com/stream and /api/stream/* to today's state: the dashboard behind only its own password, with no Access**, on the old address.
+- While the pass-through is back, live.* keeps its Access apps, or loses its hostname (step 1 above). It never keeps the hostname without the apps.
+- The Twitch Redirect URL and the OBS "CLIP SHOWCASE" source go back to arcadesandwich.com only if live.* is removed.
+
+**Option B (only if it was used instead):** delete the extra arcadesandwich.com domains from the main app and the three arcadesandwich.com bypass apps, after the pass-through is closed or with the old address's protection decided by Server.
 
 Sources:
 - Cloudflare Zero Trust docs: Self-hosted applications, Application paths (the most specific path wins), Bypass policies, One-time PIN, Session duration, Cookie settings, URL normalization.
