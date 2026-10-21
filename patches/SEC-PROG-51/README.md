@@ -1,6 +1,6 @@
 # SEC-PROG-51: LISTEN-12, the tower sending pieces to the main PC's speech server
 
-Status: draft (waiting for Security's review)
+Status: reviewed-security (Security, 2026-10-21: no redirects, 2 MB answer cap, safe parse, strings only and clipped)
 Owner: the Transcript Tool (listen\whisper.js).
 Made against: C:\server\ai-workspace\app at 89fbf47 (includes LISTEN-12, 019fd91). Paths in fix.diff are from the app's root.
 
