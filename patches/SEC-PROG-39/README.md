@@ -1,11 +1,12 @@
 # SEC-PROG-39: musta.no's order store, before the Cloudflare Access login comes off
 
-Status: draft (waiting for Security's review)
+Status: reviewed-security (Security, 2026-10-21; the admin limit counts wrong passwords only)
+Tracker: SEC-PROG-41 (admin tries), 42 (order limit), 43 (the five lows), 44 (root wrangler.toml), 45 (preview open).
 Owner: the MustaHub chats (Store for worker/, the Builder for the site workers). The security team changes nothing in MustaHub.
 Made against: github.com/ArcadeSandwich/MustaHub, branch store/legal, head ba2257b (2026-10-21), the order store to be deployed with the shop off. Paths in fix.diff are from the repository root.
 
 ## Findings, ranked
-1. **Medium to high once the login is off: no limit on admin password tries.** worker/src/index.js:444-447 (admin()): every /api/admin/* request compares X-Admin-Password, with no count of wrong tries. Once Cloudflare Access no longer covers musta.no/api, anyone can guess the password as fast as they like, and the admin routes give every buyer's name, address, email and phone, plus delete and export. **Fixed here:** at most 10 admin tries per visitor in 15 minutes, counted before the compare. Also make ADMIN_PASSWORD long and random (a Worker secret, the Admin's job).
+1. **Medium to high once the login is off: no limit on admin password tries.** worker/src/index.js:444-447 (admin()): every /api/admin/* request compares X-Admin-Password, with no count of wrong tries. Once Cloudflare Access no longer covers musta.no/api, anyone can guess the password as fast as they like, and the admin routes give every buyer's name, address, email and phone, plus delete and export. **Fixed here:** at most 10 WRONG admin passwords per visitor in 15 minutes. The count is checked before the compare (429 when over), a wrong password is recorded and answered 401, and a right password is never counted. admin.html makes one call per click and doesn't poll (site/js/admin.js, site/js/store.js), so normal work never reaches a limit. A burst of wrong tries sent at the same moment can slip a few past it, which is harmless with a long random password. Also make ADMIN_PASSWORD long and random (a Worker secret, the Admin's job).
 2. **Medium: the order limit can be stepped around.** index.js:176-182 and 337-343: (a) the count is read, and the visitor's row is written only after a successful order, so many orders at the same moment all pass the check; (b) an IPv6 visitor gets a new count for every address in their /64 (one home network has billions); (c) X-Forwarded-For is a fallback, and anyone can type it. With checkout on, someone could hold all the copies in unpaid 30-minute checkouts. **Fixed here:** overLimit() writes the try first, then counts; IPv6 counts by /64; only CF-Connecting-IP. (Turnstile on the checkout form would be a second lock; that's the Builder's and the Admin's choice.)
 3. **Low: no size limit on bodies.** index.js:143, 307, 459, 475, 481 use request.json() on any size (the platform's own limit is very large). **Fixed here:** readJson() refuses over 16 KB with 413.
 4. **Low: a signed Vipps notice can be replayed.** worker/src/vipps.js:88-106 checks the HMAC and body hash, but not the age of x-ms-date. **Fixed here:** refused when more than 5 minutes off.
@@ -29,12 +30,12 @@ Made against: github.com/ArcadeSandwich/MustaHub, branch store/legal, head ba225
 
 ## Apply (Store)
 1. In MustaHub on store/legal: `git apply --check <this folder>\fix.diff`, then `git apply <this folder>\fix.diff`.
-2. `node --test worker/test/sec-prog-39.test.mjs`: expect 7 pass. Without the patch, 6 fail (only the store-closed check passes, because ORDERS_OPEN is already on the branch).
+2. `node --test worker/test/sec-prog-39.test.mjs`: expect 8 pass. Without the patch, 6 fail (the store-closed check and the 20-right-passwords check already pass on the branch).
 3. Set the Worker secrets RATE_SALT (random) and, if it isn't long already, a new random ADMIN_PASSWORD (the Admin, in Cloudflare).
 4. Deploy as planned (wrangler deploy in worker/). The submissions table is reused, so no migration is needed.
 
 ## Check it worked
-- On the deployed store, ten wrong admin passwords from one address, then the right one, give 429.
+- On the deployed store, ten wrong admin passwords from one address, then any try, give 429; a normal admin.html session (many calls with the right password) is never limited.
 - An order body over 16 KB gives 413.
 - With the shop off, POST /api/orders gives 503 store_closed.
 
@@ -42,4 +43,4 @@ Made against: github.com/ArcadeSandwich/MustaHub, branch store/legal, head ba225
 `git apply -R fix.diff`.
 
 ## Tested
-On a scratch clone of store/legal: the new test passes 7 of 7 with the patch and 1 of 7 without it. The test runs the Worker's own fetch in Node 24 with a small stand-in for D1 (only the submissions table); nothing reaches Cloudflare, Vipps or Resend. No wrangler build was run here.
+On a scratch clone of store/legal: the new test passes 8 of 8 with the patch and 2 of 8 without it. The test runs the Worker's own fetch in Node 24 with a small stand-in for D1 (only the submissions table); nothing reaches Cloudflare, Vipps or Resend. No wrangler build was run here.

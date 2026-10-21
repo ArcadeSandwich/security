@@ -1,5 +1,5 @@
 diff --git a/worker/src/index.js b/worker/src/index.js
-index 41fdf43..b139937 100644
+index 41fdf43..eaf42b4 100644
 --- a/worker/src/index.js
 +++ b/worker/src/index.js
 @@ -30,7 +30,7 @@ import * as vipps from './vipps.js';
@@ -124,16 +124,26 @@ index 41fdf43..b139937 100644
  
    const id = result.meta?.last_row_id ?? 0;
    const saved = { id, productId: item.id, title: item.title, copies: order.copies, unitPriceNok: unitPrice, shippingNok: shipping, totalNok: total };
-@@ -444,6 +464,8 @@ async function sendBuyerConfirmation(env, id) {
+@@ -444,8 +464,17 @@ async function sendBuyerConfirmation(env, id) {
  
  async function admin(request, env, path, url) {
    if (!env.ADMIN_PASSWORD) return json({ error: 'admin password not set' }, 503);
-+  // SEC-PROG-39: at most 10 admin tries per visitor in 15 minutes (right or wrong), checked before the password.
-+  if (await overLimit(env, request, 'admin', 10, 900_000)) return json({ error: 'rate' }, 429);
++  // SEC-PROG-39/41: at most 10 WRONG admin passwords per visitor in 15 minutes, checked before the compare. Right
++  // passwords are never counted, so the Admin's own work in admin.html (a call per click) never locks him out.
++  const wrongKey = await sha256('admin|' + visitorKey(request) + '|' + (env.RATE_SALT || ''));
++  const wrongNow = Date.now();
++  const wrong = await env.DB.prepare('SELECT COUNT(*) AS n FROM submissions WHERE ip_hash = ? AND created_at > ?').bind(wrongKey, wrongNow - 900_000).first();
++  if ((wrong?.n ?? 0) >= 10) return json({ error: 'rate' }, 429);
    const given = request.headers.get('X-Admin-Password') || '';
-   if (!(await safeEqual(given, env.ADMIN_PASSWORD))) return json({ error: 'unauthorized' }, 401);
+-  if (!(await safeEqual(given, env.ADMIN_PASSWORD))) return json({ error: 'unauthorized' }, 401);
++  if (!(await safeEqual(given, env.ADMIN_PASSWORD))) {
++    await env.DB.prepare('INSERT INTO submissions (ip_hash, created_at) VALUES (?, ?)').bind(wrongKey, wrongNow).run();
++    return json({ error: 'unauthorized' }, 401);
++  }
  
-@@ -456,7 +478,7 @@ async function admin(request, env, path, url) {
+   const m = path.match(/^\/api\/admin\/orders\/(\d+)$/);
+   if (request.method === 'GET' && path === '/api/admin/orders') {
+@@ -456,7 +485,7 @@ async function admin(request, env, path, url) {
      return json({ orders: results, ...(await computeCounts(env)) });
    }
    if (request.method === 'PATCH' && m) {
@@ -142,7 +152,7 @@ index 41fdf43..b139937 100644
      return updateOrder(env, parseInt(m[1], 10), body);
    }
    if (request.method === 'DELETE' && m) {
-@@ -472,13 +494,13 @@ async function admin(request, env, path, url) {
+@@ -472,13 +501,13 @@ async function admin(request, env, path, url) {
      return json({ ok: true, ...(await computeCounts(env)) });
    };
    if (request.method === 'PUT' && path === '/api/admin/stock') {
@@ -174,10 +184,10 @@ index 3b66ff0..ea9e68c 100644
    const toSign = `POST\n${url.pathname}${url.search}\n${date};${host};${hash}`;
 diff --git a/worker/test/sec-prog-39.test.mjs b/worker/test/sec-prog-39.test.mjs
 new file mode 100644
-index 0000000..5c7efdd
+index 0000000..2ad61c2
 --- /dev/null
 +++ b/worker/test/sec-prog-39.test.mjs
-@@ -0,0 +1,81 @@
+@@ -0,0 +1,87 @@
 +// SEC-PROG-39 (Security · Programs, 2026-10-21): the order store's limits. Run from the repository root:
 +//   node --test worker/test/sec-prog-39.test.mjs
 +// A small stand-in for D1 keeps only the submissions table; nothing reaches Cloudflare, Vipps or Resend.
@@ -207,10 +217,16 @@ index 0000000..5c7efdd
 +const call = (e, path, init = {}, ip = '203.0.113.9') =>
 +  worker.fetch(new Request('https://musta.no' + path, { ...init, headers: { 'CF-Connecting-IP': ip, ...(init.headers || {}) } }), e, { waitUntil() {} });
 +
-+test('SEC-PROG-39: wrong admin passwords are limited per visitor (10 in 15 minutes), then 429 even for the right one', async () => {
++test('SEC-PROG-39/41: wrong admin passwords are limited per visitor (10 in 15 minutes): the 11th try gives 429, even the right one', async () => {
 +  const e = env();
 +  for (let i = 0; i < 10; i++) assert.equal((await call(e, '/api/admin/orders', { headers: { 'X-Admin-Password': 'wrong' + i } })).status, 401);
++  assert.equal((await call(e, '/api/admin/orders', { headers: { 'X-Admin-Password': 'wrong-again' } })).status, 429, 'the 11th wrong one');
 +  assert.equal((await call(e, '/api/admin/orders', { headers: { 'X-Admin-Password': 'right-password-for-tests' } })).status, 429);
++});
++
++test('SEC-PROG-41: right passwords are never counted: 20 admin calls in a row all pass', async () => {
++  const e = env();
++  for (let i = 0; i < 20; i++) assert.equal((await call(e, '/api/admin/orders', { headers: { 'X-Admin-Password': 'right-password-for-tests' } })).status, 200, 'call ' + (i + 1));
 +});
 +
 +test('SEC-PROG-39: an IPv6 visitor is one visitor for its whole /64, however the address is written', async () => {

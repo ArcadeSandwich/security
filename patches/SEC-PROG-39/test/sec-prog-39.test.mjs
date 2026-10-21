@@ -27,10 +27,16 @@ const env = (extra = {}) => ({ DB: fakeDb(), ADMIN_PASSWORD: 'right-password-for
 const call = (e, path, init = {}, ip = '203.0.113.9') =>
   worker.fetch(new Request('https://musta.no' + path, { ...init, headers: { 'CF-Connecting-IP': ip, ...(init.headers || {}) } }), e, { waitUntil() {} });
 
-test('SEC-PROG-39: wrong admin passwords are limited per visitor (10 in 15 minutes), then 429 even for the right one', async () => {
+test('SEC-PROG-39/41: wrong admin passwords are limited per visitor (10 in 15 minutes): the 11th try gives 429, even the right one', async () => {
   const e = env();
   for (let i = 0; i < 10; i++) assert.equal((await call(e, '/api/admin/orders', { headers: { 'X-Admin-Password': 'wrong' + i } })).status, 401);
+  assert.equal((await call(e, '/api/admin/orders', { headers: { 'X-Admin-Password': 'wrong-again' } })).status, 429, 'the 11th wrong one');
   assert.equal((await call(e, '/api/admin/orders', { headers: { 'X-Admin-Password': 'right-password-for-tests' } })).status, 429);
+});
+
+test('SEC-PROG-41: right passwords are never counted: 20 admin calls in a row all pass', async () => {
+  const e = env();
+  for (let i = 0; i < 20; i++) assert.equal((await call(e, '/api/admin/orders', { headers: { 'X-Admin-Password': 'right-password-for-tests' } })).status, 200, 'call ' + (i + 1));
 });
 
 test('SEC-PROG-39: an IPv6 visitor is one visitor for its whole /64, however the address is written', async () => {
