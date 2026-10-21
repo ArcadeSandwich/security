@@ -70,11 +70,11 @@ $sig = @'
 [DllImport("kernel32.dll")] public static extern bool SetConsoleMode(IntPtr handle, uint mode);
 '@
 $k = Add-Type -MemberDefinition $sig -Name ConsoleMode -Namespace Speech -PassThru
-$input = $k::GetStdHandle(-10)   # the window's keyboard/mouse input
+$hIn = $k::GetStdHandle(-10)   # the window's keyboard/mouse input
 $mode = 0
-if ($k::GetConsoleMode($input, [ref]$mode)) {
+if ($k::GetConsoleMode($hIn, [ref]$mode)) {
   # 0x40 = QuickEdit (off), 0x80 = "extended flags" (needed for the change to stick)
-  $null = $k::SetConsoleMode($input, ($mode -band (-bnot 0x40)) -bor 0x80)
+  $null = $k::SetConsoleMode($hIn, ($mode -band (-bnot 0x40)) -bor 0x80)
 }
 ```
 
