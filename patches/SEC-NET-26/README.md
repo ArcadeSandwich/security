@@ -55,19 +55,47 @@ New-NetFirewallRule -Name 'SEC-NET-26-whisper-block-others' -DisplayName 'SEC-NE
 ```
 The block rule is there for the same reason as in SEC-NET-23 v3: Tailscale's own broad allow rules ("Tailscale-In") would otherwise let every tailnet device in, and a block rule wins over them. It leaves out cadeyserver and mika-pc itself.
 
-**5. The start file and the logon task.** Save this as `C:\speech\start-speech.bat` (it is the only way whisper-server is started):
+**5. The start files and the logon task.**
+
+First, the QuickEdit helper (Playbook INS-003, the same file as the tower's `tools\no-quickedit.ps1`). Save it as `C:\speech\no-quickedit.ps1`. A click in a console window with QuickEdit on pauses the program inside it until Esc is pressed; this switches QuickEdit off for that one window.
+```powershell
+# Turns off QuickEdit for the console window this runs in, so clicking in the Speech window can't pause whisper-server.
+# cmd.exe puts the window's mode back whenever a program it started ends, so the .bat starts this next to the
+# server with -Wait: it switches QuickEdit off a few seconds later, while the server is running.
+param([int]$Wait = 0)
+if ($Wait -gt 0) { Start-Sleep -Seconds $Wait }
+$sig = @'
+[DllImport("kernel32.dll")] public static extern IntPtr GetStdHandle(int nStdHandle);
+[DllImport("kernel32.dll")] public static extern bool GetConsoleMode(IntPtr handle, out uint mode);
+[DllImport("kernel32.dll")] public static extern bool SetConsoleMode(IntPtr handle, uint mode);
+'@
+$k = Add-Type -MemberDefinition $sig -Name ConsoleMode -Namespace Speech -PassThru
+$input = $k::GetStdHandle(-10)   # the window's keyboard/mouse input
+$mode = 0
+if ($k::GetConsoleMode($input, [ref]$mode)) {
+  # 0x40 = QuickEdit (off), 0x80 = "extended flags" (needed for the change to stick)
+  $null = $k::SetConsoleMode($input, ($mode -band (-bnot 0x40)) -bor 0x80)
+}
+```
+
+Then save this as `C:\speech\start-speech.bat` (it is the only way whisper-server is started):
 ```bat
 @echo off
 title Speech (100.94.195.32:7426)
 rem SEC-NET-26 / LISTEN-12: whisper-server on mika-pc's Tailscale address only, from cadeyserver only (firewall rule SEC-NET-26).
 rem Never --convert (no audio on disk). The loop also covers a failed bind at logon (Tailscale not up yet): it retries every 10 s.
+rem Playbook INS-003: QuickEdit off for this window each round, so a click in it can never freeze whisper-server.
 cd /d C:\speech\whisper
+set "NO_QE=C:\speech\no-quickedit.ps1"
 :loop
+if exist "%NO_QE%" start "" /b "%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "%NO_QE%" -Wait 3
 whisper-server.exe -m C:\speech\models\ggml-large-v3-turbo-q5_0.bin --host 100.94.195.32 --port 7426 -t 4 --vad -vm C:\speech\models\ggml-silero-v5.1.2.bin
 timeout /t 10 /nobreak >nul
 goto loop
 ```
 Use nb-whisper-medium-q5_0.bin instead if that is the model LISTEN-6 picked.
+
+**Don't click in the Speech window; if it looks frozen, press Esc in it.**
 
 Then the logon task, **in a NORMAL PowerShell window, signed in as the Admin's own account**. It runs as the Admin, only while logged in, at BelowNormal priority. A logon task for your own account with RunLevel Limited needs no elevation, and an elevated window opened with another admin account would give the task to the wrong user.
 ```powershell
