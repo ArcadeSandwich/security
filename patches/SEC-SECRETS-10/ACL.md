@@ -1,6 +1,6 @@
 # SEC-SECRETS-10, part 2: limit who can read the IRL stream's secret folders
 
-Status: draft
+Status: reviewed-security
 
 - **What is wrong:** `C:\irl-stream\private` and `C:\irl-stream\private-musta` hold the stream keys (now including the named keys' streamkeys.json), the dashboard passwords, the OBS remote password and the Twitch app secret. Today every local account can read them: BUILTIN\Users has read (RX), and Authenticated Users can even change them (Modify), all inherited from C:\. The `0o600` mode that the dashboard sets on streamkeys.json does nothing on Windows.
 - **The fix:** each folder stops inheriting and gets exactly three entries: Administrators Full control, SYSTEM Full control, and CadeyServer Modify. Both dashboards run as CadeyServer ("Startup - IRL Stream" and "Startup - IRL Musta", RunLevel Limited, so the Administrators entry doesn't count for them), and FIX-9 keeps that account, so they still read and write.
@@ -30,13 +30,22 @@ Each .acl file lists the folder and its files (relative names such as `private\k
 
 ## 3. Apply (same elevated window)
 ```powershell
+# Stop BEFORE anything changes if the account or the saved copies are missing.
+if (-not $me) { throw 'CadeyServer SID not found: nothing changed' }
+foreach ($f in "$state\private.acl", "$state\private-musta.acl") {
+  if (-not (Test-Path $f) -or (Get-Item $f).Length -eq 0) { throw "saved permissions missing or empty ($f): nothing changed" }
+}
 foreach ($d in 'C:\irl-stream\private', 'C:\irl-stream\private-musta') {
   icacls $d /grant "*${me}:(OI)(CI)M"                              # first, so the dashboards never lose access
+  if ($LASTEXITCODE -ne 0) { throw "could not grant CadeyServer on ${d}: stopped before removing anything" }
   icacls $d /inheritance:r                                          # stop inheriting; the inherited entries (Users, Authenticated Users, any unknown SID) go
+  if ($LASTEXITCODE -ne 0) { throw "inheritance not removed on ${d}: run the undo (step 5)" }
   icacls $d /grant:r '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-18:(OI)(CI)F' "*${me}:(OI)(CI)M"
+  if ($LASTEXITCODE -ne 0) { throw "the three entries were not set on ${d}: run the undo (step 5)" }
   icacls "$d\*" /reset /t /c                                        # every file inside takes the folder's three entries
 }
 ```
+Run steps 2 and 3 in the same window, so `$state` and `$me` are still set.
 
 ## 4. Check
 1. Elevated window: `icacls C:\irl-stream\private` and `icacls C:\irl-stream\private-musta`. Each must show exactly three entries, none marked (I): Administratorer (OI)(CI)(F), SYSTEM (OI)(CI)(F) and CadeyServer (OI)(CI)(M). There must be no Brukere and no Godkjente brukere entry.
@@ -48,7 +57,7 @@ foreach ($d in 'C:\irl-stream\private', 'C:\irl-stream\private-musta') {
      "$d : read $n files, write OK"
    }
    ```
-3. Restart both dashboards through their own tasks (check nobody is live first: `node C:\irl-stream\tools\obs.js GetStreamStatus`), then:
+3. Restart both dashboards through their own tasks, only when neither channel is live (check first: `node C:\irl-stream\tools\obs.js GetStreamStatus`). Do this whole patch before FIX-9 or after it, never while FIX-9 is being applied, since FIX-9 changes the same two tasks. Then:
    `powershell -File C:\irl-stream\tools\restart-dashboards.ps1`
 4. After about 10 seconds, both must answer locally. 200 or 401 means up (401: the door wants its code); no answer means down:
    ```powershell

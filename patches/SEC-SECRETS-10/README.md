@@ -10,7 +10,7 @@
   The values join the live list, and the summary's "N live values" grows by their count. Hits print as `live secret: irl private-musta keys.json: <key path>`: names only, never a value. An unreadable or unparsable file gives a warning naming only the file. A missing folder (another PC) is skipped quietly.
 - **Not changed:** the fixed patterns, the scan, `--git`, and the output format.
 
-Status: draft
+Status: reviewed-security
 
 ## Apply (Server)
 1. In C:\server\playbook: `git apply C:\server\security\patches\SEC-SECRETS-10\fix.diff`. Verified on 2026-10-20 with `git apply --check` on a scratch copy.
