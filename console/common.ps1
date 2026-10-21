@@ -18,7 +18,9 @@ function Get-LogFile {
   Join-Path $dir 'console.log'
 }
 function Write-Log([string]$text) {
-  Add-Content -Path (Get-LogFile) -Value "$(Get-Date -Format 'HH:mm:ss') $text" -Encoding UTF8
+  # SEC-INFRA-7: if the log folder can't be made or checked, say so once and keep going on screen only.
+  try { Add-Content -Path (Get-LogFile) -Value "$(Get-Date -Format 'HH:mm:ss') $text" -Encoding UTF8 -ErrorAction Stop }
+  catch { if (-not $script:LogWarned) { $script:LogWarned = $true; Write-Host "(The log can't be written, so this window is the only record: $($_.Exception.Message))" -ForegroundColor Yellow } }
   Write-Host $text
 }
 function Get-Who { "$env:USERDOMAIN\$env:USERNAME" }
@@ -79,9 +81,13 @@ function Invoke-PackScript([string]$base, [string]$name, [string]$script, [strin
   $path = Join-Path (Join-Path (Join-Path $base 'fixes') $name) $script
   $psArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $path)
   if ($mode) { $psArgs += "-$mode" }
-  $out = & "$PSHOME\powershell.exe" @psArgs 2>&1
-  $code = $LASTEXITCODE
-  foreach ($l in $out) { Write-Log "  [$name $script $mode] $l" }
+  # SEC-INFRA-7: under 'Stop', Windows PowerShell 5.1 turns the child's first stderr line (2>&1) into a terminating error,
+  # which ended the whole elevated run on 2026-10-21 without a log. 'Continue' here keeps the line; the exit code decides.
+  $old = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+  try { $out = & "$PSHOME\powershell.exe" @psArgs 2>&1; $code = $LASTEXITCODE } finally { $ErrorActionPreference = $old }
+  foreach ($l in $out) {
+    if ($l -is [System.Management.Automation.ErrorRecord]) { Write-Log "  [$name $script $mode] (error) $($l.Exception.Message)" } else { Write-Log "  [$name $script $mode] $l" }
+  }
   return ($code -eq 0)
 }
 
@@ -114,11 +120,12 @@ function New-AdminOnlySecurity {
 function Initialize-AdminOnlyDir([string]$path) {
   if (-not (Test-Path -LiteralPath $path)) { [void][System.IO.Directory]::CreateDirectory($path, (New-AdminOnlySecurity)); return }
   $acl = Get-Acl -LiteralPath $path
-  $owner = (New-Object System.Security.Principal.NTAccount($acl.Owner)).Translate([System.Security.Principal.SecurityIdentifier]).Value
+  # Read by SID, never by name (names are localized and an unknown one can't be translated), as lib\common.ps1 does.
+  $owner = $acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value
   if ($owner -notin $AdminSids) { throw "$path is not owned by Administrators or SYSTEM" }
-  foreach ($r in $acl.Access) {
+  foreach ($r in $acl.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier])) {
     if ($r.AccessControlType -ne 'Allow') { continue }
-    $sid = $r.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value
+    $sid = $r.IdentityReference.Value
     if ($sid -notin $AdminSids) { throw "$path gives access to $($r.IdentityReference)" }
   }
 }

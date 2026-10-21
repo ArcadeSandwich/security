@@ -17,8 +17,11 @@ foreach ($f in 'apply.ps1', 'common.ps1') {
 }
 . (Join-Path $PSScriptRoot 'common.ps1')
 
-Write-Log "--- elevated window started by $(Get-Who) ---"
 $failed = 0
+$stopped = $false
+# SEC-INFRA-7: any error below is caught, shown and logged; the log is copied out and the window waits for Enter.
+try {
+Write-Log "--- elevated window started by $(Get-Who) ---"
 
 # 1. Which packs: each must still be ready and approved, and its fix.ps1 must be the one the Admin saw in the dry run.
 $run = @()
@@ -73,8 +76,9 @@ try {
   if ($Deep) {
     if ((Test-ProbeApproved) -and (Copy-Approved (Get-ProbeFiles) $runDir)) {
       Write-Log 'Running the deep probe (read-only)'
-      $out = & "$PSHOME\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File (Join-Path $runDir 'probe\probe.ps1') -Deep 2>&1
-      foreach ($l in $out) { Write-Log "  [probe] $l" }
+      $old = $ErrorActionPreference; $ErrorActionPreference = 'Continue' # SEC-INFRA-7: a stderr line must not end the run
+      try { $out = & "$PSHOME\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File (Join-Path $runDir 'probe\probe.ps1') -Deep 2>&1 } finally { $ErrorActionPreference = $old }
+      foreach ($l in $out) { if ($l -is [System.Management.Automation.ErrorRecord]) { Write-Log "  [probe] (error) $($l.Exception.Message)" } else { Write-Log "  [probe] $l" } }
     } else { Write-Log 'REFUSED deep probe: missing or not approved (APPROVED.sha256)'; $failed++ }
   }
 } finally {
@@ -85,9 +89,15 @@ try {
   if ($runDir -like (Join-Path $ConsoleData 'run-*') -and (Test-Path -LiteralPath $runDir)) { Remove-Item -LiteralPath $runDir -Recurse -Force }
   Write-Log "Run copy removed: $(-not (Test-Path -LiteralPath $runDir))"
 }
-Write-Log "--- elevated window done: $failed problem(s) ---"
-Copy-LogOut
+} catch {
+  $stopped = $true
+  $msg = "STOPPED by an error, so the packs after this point were not run: $($_.Exception.Message) (apply.ps1 line $($_.InvocationInfo.ScriptLineNumber))"
+  try { Write-Log $msg } catch { Write-Host $msg -ForegroundColor Red }
+}
+try { Write-Log "--- elevated window done: $failed problem(s)$(if ($stopped) { ', stopped by an error' }) ---"; Copy-LogOut } catch { Write-Host "The log could not be copied out: $($_.Exception.Message)" -ForegroundColor Red }
 Write-Host ''
 Write-Host 'Press Enter to close this window.'
 [void][Console]::ReadLine()
-exit $failed
+# Exit codes: 0 all fine; 1-89 the number of packs with a problem; 97 stopped by an error; 98 not elevated; 99 not approved.
+if ($stopped) { exit 97 }
+exit ([Math]::Min($failed, 89))

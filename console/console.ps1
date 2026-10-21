@@ -1,8 +1,13 @@
-$env:PSModulePath = "$env:windir\System32\WindowsPowerShell\v1.0\Modules" # R1: only the system modules, never a planted one (set before anything autoloads)
 # SEC-INFRA-5, stage 1 (normal rights): list ready packs, show each README, run its dry run, ask yes or no.
 # Then start apply.ps1 ONCE, elevated, with only the chosen "pack=hash" pairs; it checks each pack and hash again.
+# SEC-INFRA-8 (the Admin, 2026-10-21: "1 cmd window per fix"): -Only <pack> offers just that pack, -ProbeOnly just the
+# deep probe, -UndoOnly just the undo menu. The launchers in console\one-by-one\ use them.
+param([string]$Only = '', [switch]$ProbeOnly, [switch]$UndoOnly)
+$env:PSModulePath = "$env:windir\System32\WindowsPowerShell\v1.0\Modules" # R1: only the system modules, never a planted one (set before anything autoloads)
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'common.ps1')
+$single = [bool]($Only -or $ProbeOnly -or $UndoOnly)
+if ($Only -and $Only -notmatch $PackName) { Write-Host "Not a pack name: $Only"; exit 2 }
 
 Write-Log "=== Security fixes console started by $(Get-Who) ==="
 # Only committed tools may run: any uncommitted change in fixes, console or probe stops the console.
@@ -14,9 +19,11 @@ if ($LASTEXITCODE -ne 0 -or $dirty) {
 }
 Write-Log "Security tools at commit $(& $Git -C $Root log -1 --format=%h); APPROVED.sha256 is $(if (Test-Path -LiteralPath $ApprovedFile) { Get-FileSha $ApprovedFile } else { 'missing' }) (compare both with the desk card)"
 
-$ready = Get-ReadyPacks
+$ready = @(Get-ReadyPacks)
+if ($single) { $ready = @($ready | Where-Object { $_ -eq $Only }) }
+if ($Only -and $ready.Count -eq 0) { Write-Log "$Only is not a ready, approved pack: nothing offered."; exit 2 }
 $chosen = @()
-if ($ready.Count -eq 0) { Write-Log 'No fix pack is ready.' }
+if ($ready.Count -eq 0 -and -not $single) { Write-Log 'No fix pack is ready.' }
 foreach ($name in $ready) {
   Write-Host ''
   Write-Host "================ $name ================"
@@ -28,7 +35,7 @@ foreach ($name in $ready) {
 }
 
 $deep = $false
-if (Test-Path -LiteralPath (Join-Path $ProbeDir 'probe.ps1') -PathType Leaf) {
+if ((-not $single -or $ProbeOnly) -and (Test-Path -LiteralPath (Join-Path $ProbeDir 'probe.ps1') -PathType Leaf)) {
   if (Test-ProbeApproved) {
     Write-Host ''
     $deep = Read-YesNo 'Also run the deep probe (read-only) in the same elevated window'
@@ -36,9 +43,12 @@ if (Test-Path -LiteralPath (Join-Path $ProbeDir 'probe.ps1') -PathType Leaf) {
   } else { Write-Log 'The deep probe is not approved (APPROVED.sha256): not offered.' }
 }
 
-Write-Host ''
-$undo = Read-YesNo 'Undo a pack applied earlier (shows the list in the elevated window)'
-Write-Log "Undo menu: $(if ($undo) { 'YES' } else { 'NO' }) ($(Get-Who))"
+$undo = $false
+if (-not $single -or $UndoOnly) {
+  Write-Host ''
+  $undo = Read-YesNo 'Undo a pack applied earlier (shows the list in the elevated window)'
+  Write-Log "Undo menu: $(if ($undo) { 'YES' } else { 'NO' }) ($(Get-Who))"
+}
 
 if ($chosen.Count -eq 0 -and -not $deep -and -not $undo) { Write-Log 'Nothing to apply. Done.'; exit 0 }
 
@@ -52,7 +62,8 @@ if (-not (Test-ConsoleApproved)) { Write-Log 'STOPPED: console\apply.ps1 or comm
 Write-Log "Asking Windows for one elevated window: $(($chosen | ForEach-Object { $_.Split('=')[0] }) -join ', ')$(if ($deep) { ' + deep probe' })"
 try {
   $p = Start-Process "$PSHOME\powershell.exe" -Verb RunAs -ArgumentList $argList -Wait -PassThru
-  Write-Log "Elevated window finished (exit $($p.ExitCode)). Results are in $(Get-LogFile)"
+  $what = switch ($p.ExitCode) { 0 { 'all fine' } 97 { 'STOPPED by an error; packs after it were not run' } 98 { 'not elevated; nothing run' } 99 { 'not the approved version; nothing run' } default { "$($p.ExitCode) pack(s) with a problem" } }
+  Write-Log "Elevated window finished (exit $($p.ExitCode): $what). Results are in $(Get-LogFile)"
 } catch {
   Write-Log 'Windows permission was refused or cancelled: nothing was applied.'
 }
