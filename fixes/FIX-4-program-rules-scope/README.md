@@ -18,13 +18,16 @@ Status: ready
   - When Windows asks again for a new program, answer only for Private networks.
   - If the container DNS breaks for the VM, run `-Undo`.
 - **After a restart:** Windows may recreate the HNS rules with Any. Run `check.ps1` after each restart; if it fails, run the pack again.
+- **After an OBS, node, bun or Ollama update** (standing step): an update that moves the program, or a new program, makes Windows ask "Allow access" again, and that answer creates a fresh "Query User" rule with remote Any. Run `check.ps1`; if it fails, run the pack again (console\one-by-one\FIX-4-program-rules-scope.cmd).
+- **"Defer to user" rules (SEC-INFRA-12):** the rules Windows makes from its "Allow access" prompt have edge traversal "Defer to user", and Windows refuses a remote address on them (the 2026-10-21 runs failed on this and changed nothing). The pack sets edge traversal to Block (the Windows default: no NAT traversal from the internet) in the same change, and `-Undo` puts "Defer to user" back.
+- **IRL stream (IRLToolkit, 2026-10-21):** nothing in the stream VM connects in to the host; every IRL connection goes out from the host, and loopback and outbound traffic are not touched by this pack. Tell IRLToolkit before anything limits obs64.exe or node.exe on 127.0.0.1 or towards 10.0.0.0/24.
 - **Windows permission:** an elevated window, for the recording dry run, Apply and Undo. `check.ps1` and an unelevated dry run need none.
 
 ## Use
 1. `fix.ps1 -DryRun` (elevated): records the exact state of the matching rules.
 2. `fix.ps1 -Apply` (elevated): refuses if the dry run is missing, older than 24 hours, or the rules changed since.
 3. `check.ps1`: PASS when no enabled allow rule for the six programs, and no HNS DNS rule, has Remote IP Any.
-4. `fix.ps1 -Undo` (elevated): puts Enabled, Profile and Remote IP back exactly as recorded.
+4. `fix.ps1 -Undo` (elevated): puts Enabled, Profile, Remote IP and edge traversal back exactly as first recorded.
 
 Source: Microsoft, Windows Firewall rules (Scope); Microsoft, Host Network Service (HNS) firewall rules for container networking.
 

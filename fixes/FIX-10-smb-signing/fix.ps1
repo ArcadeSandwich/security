@@ -60,4 +60,5 @@ if ($Undo) {
     Set-SmbServerConfiguration -RequireSecuritySignature ([bool]$saved.requireSecuritySignature) -Force
     Log "$Id undone: RequireSecuritySignature = $($saved.requireSecuritySignature)"
     if (Test-Path $basePath) { Remove-Item -LiteralPath $basePath; Log "$Id undo point (baseline.json) cleared after the undo" }
+    if (Test-Path $statePath) { Remove-Item -LiteralPath $statePath; Log "$Id dry run record cleared after the undo (SEC-INFRA-10)" }
 }

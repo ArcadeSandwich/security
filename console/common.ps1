@@ -47,7 +47,8 @@ function Test-Approved([string]$rel, [string]$base = $Root) {
 function Get-LibFiles { @(Get-ChildItem -LiteralPath $LibDir -File -Filter *.ps1 -ErrorAction SilentlyContinue | ForEach-Object { "lib/$($_.Name)" }) }
 function Get-ProbeFiles {
   if (-not (Test-Path -LiteralPath $ProbeDir)) { return @() }
-  @(Get-ChildItem -LiteralPath $ProbeDir -File -Recurse | ForEach-Object { 'probe/' + ($_.FullName.Substring($ProbeDir.Length + 1) -replace '\\', '/') })
+  # SEC-INFRA-11: probe.ps1 dot-sources lib\common.ps1, so the run copy needs the shared lib too (it failed on 2026-10-21).
+  @(Get-ChildItem -LiteralPath $ProbeDir -File -Recurse | ForEach-Object { 'probe/' + ($_.FullName.Substring($ProbeDir.Length + 1) -replace '\\', '/') }) + (Get-LibFiles)
 }
 # Every file a pack needs to run: its two scripts and the shared lib. All must be approved.
 function Get-PackFiles([string]$name) { @("fixes/$name/fix.ps1", "fixes/$name/check.ps1") + (Get-LibFiles) }

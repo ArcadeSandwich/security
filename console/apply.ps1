@@ -77,8 +77,10 @@ try {
     if ((Test-ProbeApproved) -and (Copy-Approved (Get-ProbeFiles) $runDir)) {
       Write-Log 'Running the deep probe (read-only)'
       $old = $ErrorActionPreference; $ErrorActionPreference = 'Continue' # SEC-INFRA-7: a stderr line must not end the run
-      try { $out = & "$PSHOME\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File (Join-Path $runDir 'probe\probe.ps1') -Deep 2>&1 } finally { $ErrorActionPreference = $old }
+      try { $out = & "$PSHOME\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File (Join-Path $runDir 'probe\probe.ps1') -Deep 2>&1; $probeCode = $LASTEXITCODE } finally { $ErrorActionPreference = $old }
       foreach ($l in $out) { if ($l -is [System.Management.Automation.ErrorRecord]) { Write-Log "  [probe] (error) $($l.Exception.Message)" } else { Write-Log "  [probe] $l" } }
+      # SEC-INFRA-11: a probe that fails counts as a problem (it showed "0 problem(s)" on 2026-10-21).
+      if ($probeCode -ne 0 -or @($out | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] }).Count) { Write-Log "PROBE FAILED (exit $probeCode)"; $failed++ } else { Write-Log 'OK deep probe' }
     } else { Write-Log 'REFUSED deep probe: missing or not approved (APPROVED.sha256)'; $failed++ }
   }
 } finally {

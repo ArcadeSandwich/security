@@ -15,8 +15,11 @@ $env:PSModulePath = "$env:windir\System32\WindowsPowerShell\v1.0\Modules"   # R1
 # - DryRun (elevated): records the exact state of every matching rule to the protected state folder
 #   (Get-PackStateDir: C:\ProgramData\SecurityConsole\state\<pack folder name>, Administrators and SYSTEM only).
 # - Apply (elevated): needs a recorded dry run under 24 hours old whose rules still match the PC exactly.
-# - Undo (elevated): puts back Enabled, Profile and RemoteAddress exactly as recorded, and removes the pack's own
-#   block rules, after checking that every recorded id is still picked by the pack today and every value parses.
+# - Undo (elevated): puts back Enabled, Profile, RemoteAddress and edge traversal exactly as first recorded (baseline.json,
+#   SEC-INFRA-9), and removes the pack's own block rules, after checking that every recorded rule still exists as an inbound
+#   allow rule with a valid target and every value parses. It does NOT check that the pack would pick the rule today (an
+#   applied RemoteAnyOnly rule no longer would); the ids come from the admin-only state folder. Afterwards it clears
+#   baseline.json and dryrun.json (SEC-INFRA-10).
 # Elevated runs log to log.txt in the state folder.
 
 $script:TailscaleRanges = @('100.64.0.0/10', 'fd7a:115c:a1e0::/48')
@@ -45,7 +48,8 @@ function Get-PackRuleState($Pack) {
         foreach ($id in (Get-TargetRuleIds $t | Sort-Object -Unique)) {
             $r = Get-NetFirewallRule -Name $id; $a = $r | Get-NetFirewallAddressFilter
             # Enabled as a bool, Profile as its number, so Undo never has to parse display text.
-            $out += [ordered]@{ target = $i; id = $r.Name; name = $r.DisplayName; enabled = ("$($r.Enabled)" -eq 'True'); profile = [int]$r.Profile; remoteAddress = @($a.RemoteAddress | ForEach-Object { "$_" }) }
+            # SEC-INFRA-12: edge traversal too, because "Defer to user" (rules from Windows' "Allow access" prompt) can't take a scope.
+            $out += [ordered]@{ target = $i; id = $r.Name; name = $r.DisplayName; enabled = ("$($r.Enabled)" -eq 'True'); profile = [int]$r.Profile; remoteAddress = @($a.RemoteAddress | ForEach-Object { "$_" }); edgeTraversal = "$($r.EdgeTraversalPolicy)" }
         }
     }
     , @($out)
@@ -69,6 +73,20 @@ function Test-RemoteAddressValue([string]$v) {
 function Write-PackLog($stateDir, [string]$line) {
     if ($stateDir) { "$(Get-Date -Format s) $env:USERNAME $line" | Out-File -Append -Encoding utf8 (Join-Path $stateDir 'log.txt') }
     Write-Host $line
+}
+
+# SEC-INFRA-12: the extra Set-NetFirewallRule arguments for a scope change. Windows refuses a remote address on a rule
+# whose edge traversal is DeferToUser or DeferToApp, so those become Block (the default) in the same call; Undo puts it back.
+$script:EdgeValues = @('Block', 'Allow', 'DeferToUser', 'DeferToApp')
+function Get-ScopeExtra([string]$edge) {
+    if ($edge -in 'DeferToUser', 'DeferToApp') { return @{ EdgeTraversalPolicy = 'Block' } }
+    @{}
+}
+# For Undo: the edge traversal to put back, or $null when nothing was recorded (older state files) or it is unchanged.
+function Get-UndoEdge($r, [string]$current) {
+    $e = "$($r.edgeTraversal)"
+    if (-not $e -or $e -eq $current) { return $null }
+    $e
 }
 
 # SEC-INFRA-9: baseline.json is the undo point. The first -Apply copies the dry run into it; a later -Apply only adds
@@ -141,7 +159,7 @@ function Invoke-FirewallPack($Pack, [bool]$DryRun, [bool]$Apply, [bool]$Undo) {
     $saved = Get-Content -Raw $statePath | ConvertFrom-Json
     if ($Undo -and (Test-Path $basePath)) { $saved = Get-Content -Raw $basePath | ConvertFrom-Json }   # SEC-INFRA-9: undo to the first state
     if ($saved.pack -ne $Pack.Id -or $saved.folder -ne $Pack.Folder) { Write-Host 'The recorded dry run is for another pack. Nothing changed.'; exit 3 }
-    $recorded = @($saved.rules | ForEach-Object { [ordered]@{ target = [int]$_.target; id = "$($_.id)"; name = "$($_.name)"; enabled = [bool]$_.enabled; profile = [int]$_.profile; remoteAddress = @($_.remoteAddress | ForEach-Object { "$_" }) } })
+    $recorded = @($saved.rules | ForEach-Object { [ordered]@{ target = [int]$_.target; id = "$($_.id)"; name = "$($_.name)"; enabled = [bool]$_.enabled; profile = [int]$_.profile; remoteAddress = @($_.remoteAddress | ForEach-Object { "$_" }); edgeTraversal = "$($_.edgeTraversal)" } })
     $blocksBefore = @($saved.blocksPresent | ForEach-Object { "$_" })
 
     if ($Apply) {
@@ -150,7 +168,7 @@ function Invoke-FirewallPack($Pack, [bool]$DryRun, [bool]$Apply, [bool]$Undo) {
         Update-PackBaseline $statePath $basePath   # SEC-INFRA-9: before the first change
         foreach ($r in $recorded) {
             $t = $Pack.Targets[$r.target]
-            if ($t.Change -eq 'disable') { Set-NetFirewallRule -Name $r.id -Enabled False } else { Set-NetFirewallRule -Name $r.id -RemoteAddress $t.Scope }
+            if ($t.Change -eq 'disable') { Set-NetFirewallRule -Name $r.id -Enabled False } else { $x = Get-ScopeExtra "$($r.edgeTraversal)"; Set-NetFirewallRule -Name $r.id -RemoteAddress $t.Scope @x }
             Write-PackLog $stateDir "$($Pack.Id) applied to $($r.name) [$($r.id)]: $(Get-TargetText $t)"
         }
         foreach ($t in @($Pack.Targets | Where-Object { $_.Block })) {
@@ -174,11 +192,15 @@ function Invoke-FirewallPack($Pack, [bool]$DryRun, [bool]$Apply, [bool]$Undo) {
             if (-not $live -or "$($live.Direction)" -ne 'Inbound' -or "$($live.Action)" -ne 'Allow') { Write-Host "Refused: recorded rule $($r.id) is gone or is not an inbound allow rule. Nothing changed."; exit 3 }
             if ($r.profile -lt 0 -or $r.profile -gt 7) { Write-Host "Refused: profile value $($r.profile) for $($r.id) does not parse. Nothing changed."; exit 3 }
             if ($r.remoteAddress.Count -eq 0 -or @($r.remoteAddress | Where-Object { -not (Test-RemoteAddressValue $_) }).Count) { Write-Host "Refused: a remote address for $($r.id) does not parse. Nothing changed."; exit 3 }
+            if ($r.edgeTraversal -and $script:EdgeValues -notcontains $r.edgeTraversal) { Write-Host "Refused: edge traversal '$($r.edgeTraversal)' for $($r.id) does not parse. Nothing changed."; exit 3 }
         }
         foreach ($r in $recorded) {
             $enabled = if ($r.enabled) { 'True' } else { 'False' }
             Set-NetFirewallRule -Name $r.id -Enabled $enabled -Profile (ConvertTo-FwProfile $r.profile) -RemoteAddress $r.remoteAddress
-            Write-PackLog $stateDir "$($Pack.Id) undone on $($r.name) [$($r.id)]: enabled=$enabled profile=$($r.profile) remote=$($r.remoteAddress -join ',')"
+            # SEC-INFRA-12: the remote address is back first (Any for these rules), so "Defer to user" is allowed again.
+            $edge = Get-UndoEdge $r "$((Get-NetFirewallRule -Name $r.id).EdgeTraversalPolicy)"
+            if ($edge) { Set-NetFirewallRule -Name $r.id -EdgeTraversalPolicy $edge }
+            Write-PackLog $stateDir "$($Pack.Id) undone on $($r.name) [$($r.id)]: enabled=$enabled profile=$($r.profile) remote=$($r.remoteAddress -join ',')$(if ($edge) { " edge=$edge" })"
         }
         # Remove only this pack's own block rules that the dry run did not find already there.
         foreach ($n in $blockNames) {
@@ -188,5 +210,7 @@ function Invoke-FirewallPack($Pack, [bool]$DryRun, [bool]$Apply, [bool]$Undo) {
         }
         # SEC-INFRA-9: everything is back as first recorded, so the next -Apply starts a new undo point.
         if (Test-Path $basePath) { Remove-Item -LiteralPath $basePath; Write-PackLog $stateDir "$($Pack.Id) undo point (baseline.json) cleared after the undo" }
+        # SEC-INFRA-10: the last dry run is post-apply; leaving it would let the next dry run promote it as the undo point.
+        if (Test-Path $statePath) { Remove-Item -LiteralPath $statePath; Write-PackLog $stateDir "$($Pack.Id) dry run record cleared after the undo (a fresh elevated dry run comes before any -Apply)" }
     }
 }
