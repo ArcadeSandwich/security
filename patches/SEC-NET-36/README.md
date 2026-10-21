@@ -37,6 +37,18 @@ An Access policy applies to its whole app; it can't be limited to a path. So eac
   - **tap "New address"** (a new key) whenever the address has been pasted anywhere, shared, or seen in a screenshot;
   - OBS's own WebSocket password stays the second lock.
 
+## The run order (Server's OR345)
+1. **IRLToolkit:** moves the OBS "CLIP SHOWCASE" source and the Twitch callback to live.*.
+2. **The Admin:** changes the Twitch app's OAuth Redirect URL in the Twitch developer console (dev.twitch.tv, the app, OAuth Redirect URLs) to `https://live.arcadesandwich.com/api/stream/pub/twitchapp/callback`.
+3. **The Admin:** creates the Access apps for live.* with their bypasses (the steps below).
+4. **Server's step, in the same hour (GO for a2):**
+   - the game stops passing `/api/stream/*` and the WebSocket to 3002, and is deployed;
+   - `arcadesandwich.com/stream` stays only as a 308 forward to live.* (no backend) for the Admin's 30 days.
+5. **Security · Network, SEC-NET-37 from outside, on both hosts:**
+   - live.*: Access on everything except the three bypasses;
+   - `arcadesandwich.com/api/stream/*` and the ws path: 404, or no longer reaching 3002;
+   - `arcadesandwich.com/stream`: a 308 to live.* only.
+
 ## Steps for the Admin (Cloudflare dashboard, then Zero Trust)
 **Order: create all four Access apps first, then put the hostname on the tunnel, so live.* is never open with only the dashboard password.** If live.* already answers, do the Access apps now. Until they exist, live.* has the same exposure as arcadesandwich.com/stream today (see "The side door" below).
 
@@ -61,11 +73,12 @@ An Access policy applies to its whole app; it can't be limited to a path. So eac
 
 ## The side door: arcadesandwich.com/stream and /api/stream/*
 The game passes `/stream` and `/api/stream/*` to the same dashboard **before its own access door** (server.js, isStream). So once live.* has Access, arcadesandwich.com/stream would still reach the dashboard with only its password. Close it in the same change:
-- **Option A (recommended): remove `/stream` and `/api/stream/*` from arcadesandwich.com once live.* works.** Before that:
+**Decided: Option A** (Server's OR345, the run order above). Option B is kept only as the fallback.
+- **Option A: remove `/stream` and `/api/stream/*` from arcadesandwich.com once live.* works.** Before that:
   - IRLToolkit moves the OBS "CLIP SHOWCASE" source to live.*. The dashboard's public base is already `https://live.arcadesandwich.com` (STREAM_PUBLIC_BASE default), so the addresses it shows are already right; OBS's source just needs the new address.
   - The Admin changes the Twitch app's OAuth Redirect URL in the Twitch developer console (dev.twitch.tv, the app, OAuth Redirect URLs) to `https://live.arcadesandwich.com/api/stream/pub/twitchapp/callback`.
-  - The game chat removes the isStream pass-through (through Server).
-  - Then arcadesandwich.com/stream falls to the game's own door, and every visitor needs a game code first.
+  - Server's step: the game stops passing /api/stream/* and the WebSocket to 3002, and /stream becomes a 308 forward to live.* for 30 days.
+  - Then nothing on arcadesandwich.com reaches the dashboard any more.
 - **Option B:** add `arcadesandwich.com/stream*` and `arcadesandwich.com/api/stream/*` to the same Access app as extra domains, with the same three bypass apps for `arcadesandwich.com/api/stream/pub/*`, `.../api/stream/ws/obsremote/*` and `.../api/stream/overlay`. It works without touching the game, but it means two sets of apps to keep in step, and the game's door still runs after Access for those paths.
 
 ## Undo
