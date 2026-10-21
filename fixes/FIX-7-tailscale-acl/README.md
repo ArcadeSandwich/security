@@ -23,16 +23,15 @@ Status: draft
     // People cadeyserver is shared with: the Prompt generator only.
     { "action": "accept", "src": ["autogroup:shared"], "dst": ["cadeyserver:7420"] }
   ],
-  "hosts": {},
-  "tests": [
-    { "src": "autogroup:shared", "accept": ["cadeyserver:7420"], "deny": ["cadeyserver:443", "cadeyserver:3389", "cadeyserver:445", "cadeyserver:11434"] }
-  ]
+  "hosts": {}
 }
 ```
 
 Notes:
 - `cadeyserver` in `dst` is the machine's name on the tailnet (MagicDNS). If the admin console calls it something else, use that name, or the address `100.107.176.17`.
-- `tests` makes Tailscale refuse to save if a shared person could reach 443 (LISTEN, through `tailscale serve`), 3389, 445 or 11434.
+- **Tests, once someone is shared in:** a "tests" entry can't use `autogroup:shared` as its source. Tailscale's tests take a specific user, group, tag or host. So add one test per shared person, using that person's Tailscale login (their email), in a `"tests": [ ... ]` block after `"hosts"`:
+  `{ "src": "<their login>", "accept": ["cadeyserver:7420"], "deny": ["cadeyserver:443", "cadeyserver:3389", "cadeyserver:445", "cadeyserver:11434", "mika-pc:11434"] }`
+  Tailscale then refuses to save the policy if that person could reach LISTEN (443, through `tailscale serve`), Remote Desktop, file sharing, or Ollama on either PC. Until anyone is shared in, no test is needed. The "Preview rules" check in step 4 does the same job by eye.
 - **Apply FIX-7 before turning on `tailscale serve` for LISTEN (LISTEN-2), if anyone is shared in by then.** Serve publishes https on port 443 to every device the policy allows.
 - Undo: paste the backup from step 2 and save.
 
