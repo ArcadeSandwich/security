@@ -1,0 +1,110 @@
+diff --git a/listen/whisper.js b/listen/whisper.js
+index d1fe68e..dfb274c 100644
+--- a/listen/whisper.js
++++ b/listen/whisper.js
+@@ -22,7 +22,10 @@ const LANGS = { norwegian: "no", nynorsk: "nn", english: "en", swedish: "sv", da
+ const ALLOWED_LANGS = new Set(["en", "no", "nn", "nb"]);
+ const below = (pid) => { try { os.setPriority(pid, os.constants.priority.PRIORITY_BELOW_NORMAL); } catch {} };
+ 
+-const joinSegments = (text) => String(text || "").replace(/\r?\n/g, "").trim();
++// SEC-PROG-51: a 10 s piece never has this much text; a longer answer is clipped, not stored whole. MAX_REPLY caps the answer.
++const MAX_TEXT = 4000;
++const MAX_REPLY = 2 * 1024 * 1024;
++const joinSegments = (text) => (typeof text === "string" ? text : "").replace(/\r?\n/g, "").trim().slice(0, MAX_TEXT);
+ 
+ /** whisper-server's start line. vadModel: the voice detector's file, or "" when it's missing. */
+ function serverArgs(vadModel = fs.existsSync(VAD_MODEL) ? VAD_MODEL : "") {
+@@ -44,7 +47,7 @@ function createWhisper({ log = () => {}, remote = "", now = Date.now, startLocal
+     if (!remoteUrl) return false;
+     if (now() - remoteState.at < REMOTE_RECHECK_MS) return remoteState.ok;
+     let ok = false;
+-    try { await fetch(remoteUrl + "/", { signal: AbortSignal.timeout(1500) }); ok = true; } catch {}
++    try { await fetch(remoteUrl + "/", { redirect: "error", signal: AbortSignal.timeout(1500) }); ok = true; } catch {}
+     if (ok !== remoteState.ok) log(ok ? "main PC speech: up, pieces go there" : "main PC speech: not answering, the tower reads");
+     remoteState = { ok, at: now() };
+     return ok;
+@@ -117,9 +120,15 @@ function createWhisper({ log = () => {}, remote = "", now = Date.now, startLocal
+     form.append("language", language);
+     form.append("temperature", "0");
+     if (prompt) form.append("prompt", prompt);
+-    const r = await fetch(`${base}/inference`, { method: "POST", body: form, signal: AbortSignal.timeout(120000) });
++    // SEC-PROG-51: the main PC's answer is data from another machine: no redirects (the wav goes only to that address), at most
++    // MAX_REPLY bytes, a parse that can't throw past here, and text clipped below.
++    const r = await fetch(`${base}/inference`, { method: "POST", body: form, redirect: "error", signal: AbortSignal.timeout(120000) });
+     if (!r.ok) throw new Error(`speech server answered ${r.status}`);
+-    const j = await r.json();
++    const buf = Buffer.from(await r.arrayBuffer());
++    if (buf.length > MAX_REPLY) throw new Error("speech server answer too large");
++    let j;
++    try { j = JSON.parse(buf.toString("utf8")); } catch { throw new Error("speech server answer is not JSON"); }
++    if (!j || typeof j !== "object") throw new Error("speech server answer is not an object");
+     if (raw === true) return j; // LISTEN-9: the whole answer (segments, words, probabilities) for the merge
+     const rawLang = typeof j.language === "string" ? j.language.toLowerCase().slice(0, 12) : "";
+     // LISTEN-8: whisper-server puts each segment on its own line, and a segment can end in the middle of a word ("s" + "ier").
+diff --git a/test/sec-prog-51.test.js b/test/sec-prog-51.test.js
+new file mode 100644
+index 0000000..fe5857e
+--- /dev/null
++++ b/test/sec-prog-51.test.js
+@@ -0,0 +1,61 @@
++"use strict";
++// SEC-PROG-51 (Security · Programs, 2026-10-21): the main PC's answer is data. A redirect, an answer over 2 MB or one that isn't
++// JSON is refused, and the tower reads that piece itself; text is clipped. Stand-in servers on this PC only.
++const test = require("node:test");
++const assert = require("node:assert/strict");
++const fs = require("fs"), os = require("os"), path = require("path"), http = require("http");
++const { execFileSync } = require("child_process");
++const { createWhisper } = require("../listen/whisper");
++
++const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sec51-"));
++const audio = path.join(dir, "1000000.audio");
++execFileSync("ffmpeg", ["-loglevel", "error", "-y", "-f", "lavfi", "-i", "sine=f=440:r=16000", "-t", "1", "-c:a", "libopus", "-f", "webm", audio]);
++
++function stand(answer) {
++  return new Promise((resolve) => {
++    let elsewhere = 0;
++    const srv = http.createServer((req, res) => {
++      if (req.url === "/elsewhere/inference") { elsewhere++; req.resume(); res.writeHead(200, { "content-type": "application/json" }); return res.end('{"text":"went elsewhere"}'); }
++      if (req.url === "/inference") { req.resume(); return answer(res, srv); }
++      res.writeHead(200); res.end("ok");
++    });
++    srv.listen(0, "127.0.0.1", () => resolve({ srv, url: `http://127.0.0.1:${srv.address().port}`, elsewhere: () => elsewhere }));
++  });
++}
++const tower = () => { const s = { starts: 0 }; s.start = async () => { s.starts++; return false; }; return s; };
++
++test("SEC-PROG-51: a redirect from the main PC is never followed; the tower reads the piece", async () => {
++  const r = await stand((res, srv) => { res.writeHead(307, { location: `http://127.0.0.1:${srv.address().port}/elsewhere/inference` }); res.end(); });
++  const t = tower();
++  try {
++    const w = createWhisper({ remote: r.url, remotePattern: /./, startLocal: t.start });
++    await assert.rejects(w.transcribe(audio, "", { readings: 1 }), /not available/);
++    assert.equal(r.elsewhere(), 0, "the wav was not sent on");
++    assert.equal(t.starts, 1, "the tower took the piece");
++  } finally { r.srv.close(); }
++});
++
++test("SEC-PROG-51: an answer over 2 MB, or not JSON, is refused; the tower reads the piece", async () => {
++  for (const body of ['{"text":"' + "x".repeat(3 * 1024 * 1024) + '"}', "<html>not json</html>"]) {
++    const r = await stand((res) => { res.writeHead(200, { "content-type": "application/json" }); res.end(body); });
++    const t = tower();
++    try {
++      const w = createWhisper({ remote: r.url, remotePattern: /./, startLocal: t.start });
++      await assert.rejects(w.transcribe(audio, "", { readings: 1 }), /not available/);
++      assert.equal(t.starts, 1);
++    } finally { r.srv.close(); }
++  }
++});
++
++test("SEC-PROG-51: a long text is clipped to 4000 characters, and a non-text field gives no text", async () => {
++  const long = await stand((res) => { res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify({ text: "y".repeat(10000), language: "en" })); });
++  try {
++    const got = await createWhisper({ remote: long.url, remotePattern: /./, startLocal: async () => false }).transcribe(audio, "", { readings: 1 });
++    assert.equal(got.text.length, 4000);
++  } finally { long.srv.close(); }
++  const odd = await stand((res) => { res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify({ text: { evil: 1 }, language: "en" })); });
++  try {
++    const got = await createWhisper({ remote: odd.url, remotePattern: /./, startLocal: async () => false }).transcribe(audio, "", { readings: 1 });
++    assert.equal(got.text, "");
++  } finally { odd.srv.close(); }
++});
