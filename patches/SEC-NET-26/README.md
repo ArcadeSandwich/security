@@ -35,7 +35,7 @@ Paste one block at a time.
 
 **2. Tailscale "Run unattended": already on** (SEC-NET-23). Check it in the Tailscale tray, Preferences.
 
-**Steps 3, 4 and 6: in an ELEVATED PowerShell** (right-click PowerShell, Run as administrator).
+**Steps 3, 4 and 6 (and the bat file in step 5 needs no rights at all): in an ELEVATED PowerShell** (right-click PowerShell, Run as administrator).
 
 **3. Switch off any allow rule Windows made for whisper-server.exe (and save them for the undo):**
 ```powershell
@@ -51,7 +51,9 @@ On a fresh install there are none yet; that's fine. If Windows later shows an "A
 **4. The one allow rule: TCP 7426 from cadeyserver only:**
 ```powershell
 New-NetFirewallRule -Name 'SEC-NET-26-whisper-from-cadeyserver' -DisplayName 'SEC-NET-26 whisper-server from cadeyserver only' -Group 'SecurityConsole SEC-NET-26' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 7426 -RemoteAddress 100.107.176.17 -Profile Any
+New-NetFirewallRule -Name 'SEC-NET-26-whisper-block-others' -DisplayName 'SEC-NET-26 whisper-server: block every other sender' -Group 'SecurityConsole SEC-NET-26' -Direction Inbound -Action Block -Protocol TCP -LocalPort 7426 -LocalAddress 100.94.195.32 -RemoteAddress '0.0.0.0-100.94.195.31','100.94.195.33-100.107.176.16','100.107.176.18-255.255.255.255' -Profile Any
 ```
+The block rule is there for the same reason as in SEC-NET-23 v3: Tailscale's own broad allow rules ("Tailscale-In") would otherwise let every tailnet device in, and a block rule wins over them. It leaves out cadeyserver and mika-pc itself.
 
 **5. The start file and the logon task.** Save this as `C:\speech\start-speech.bat` (it is the only way whisper-server is started):
 ```bat
@@ -67,7 +69,7 @@ goto loop
 ```
 Use nb-whisper-medium-q5_0.bin instead if that is the model LISTEN-6 picked.
 
-Then, in the ELEVATED window, the logon task (it runs as the Admin, only while logged in, at BelowNormal priority):
+Then the logon task, **in a NORMAL PowerShell window, signed in as the Admin's own account**. It runs as the Admin, only while logged in, at BelowNormal priority. A logon task for your own account with RunLevel Limited needs no elevation, and an elevated window opened with another admin account would give the task to the wrong user.
 ```powershell
 $a = New-ScheduledTaskAction -Execute 'C:\speech\start-speech.bat'
 $t = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
@@ -76,9 +78,7 @@ $p = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -Ru
 Register-ScheduledTask -TaskName 'Speech - whisper-server (SEC-NET-26)' -Action $a -Trigger $t -Settings $s -Principal $p
 Start-ScheduledTask -TaskName 'Speech - whisper-server (SEC-NET-26)'
 ```
-Notes:
-- Priority 7 is BelowNormal. The task runs with normal rights (Limited), not as administrator.
-- If the elevated window runs under another admin account, replace `$env:USERNAME` with the Admin's own user name.
+Note: priority 7 is BelowNormal, and the task runs with normal rights (Limited), not as administrator.
 
 **6. Check (ELEVATED; one block; paste the output to Security):**
 ```powershell
@@ -86,11 +86,11 @@ function Covers($ports) { foreach ($p in @($ports)) { if ($p -eq 'Any' -or $p -e
 "--- listening on 7426"
 Get-NetTCPConnection -LocalPort 7426 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { "$($_.LocalAddress):$($_.LocalPort)" }
 "--- every enabled inbound allow rule that can reach TCP 7426 (port 7426, Any or a range; program Any or whisper-server)"
-Get-NetFirewallRule -Direction Inbound -Action Allow -Enabled True | ForEach-Object {
+Get-NetFirewallRule -Direction Inbound -Enabled True | ForEach-Object {
   $pf = $_ | Get-NetFirewallPortFilter; $af = $_ | Get-NetFirewallApplicationFilter; $ad = $_ | Get-NetFirewallAddressFilter
   $protoOk = $pf.Protocol -in 'TCP', 'Any'
   $progOk = (-not $af.Program) -or $af.Program -eq 'Any' -or $af.Program -match '\\whisper-server\.exe$'
-  if ($protoOk -and $progOk -and (Covers $pf.LocalPort)) { "$($_.DisplayName) | $($pf.Protocol) $(@($pf.LocalPort) -join ',') | $($_.Profile) | program $(if ($af.Program) { $af.Program } else { 'Any' }) | remote $(@($ad.RemoteAddress) -join ',')" }
+  if ($protoOk -and $progOk -and (Covers $pf.LocalPort)) { "$($_.Action) | $($_.DisplayName) | $($pf.Protocol) $(@($pf.LocalPort) -join ',') | $($_.Profile) | program $(if ($af.Program) { $af.Program } else { 'Any' }) | remote $(@($ad.RemoteAddress) -join ',')" }
 }
 "--- the task"
 Get-ScheduledTask -TaskName 'Speech - whisper-server (SEC-NET-26)' | ForEach-Object { "$($_.State) | priority $($_.Settings.Priority) | runlevel $($_.Principal.RunLevel) | $($_.Actions.Execute)" }
@@ -99,8 +99,8 @@ Get-ScheduledTask -TaskName 'Speech - whisper-server (SEC-NET-26)' | ForEach-Obj
 ```
 **Safe looks like this:**
 - **whisper-server listens on `100.94.195.32:7426` only, not on `0.0.0.0` or `::`.** If nothing is listed, Tailscale was not up yet; the loop retries every 10 seconds.
-- The rule `SEC-NET-26 whisper-server from cadeyserver only | TCP 7426 | Any | program Any | remote 100.107.176.17` is in the list.
-- **No rule in the list has remote `Any`, `LocalSubnet` or a home-network address.**
+- The rule `SEC-NET-26 whisper-server from cadeyserver only` (remote 100.107.176.17) is in the list, and the block rule `SEC-NET-26 whisper-server: block every other sender` is in place.
+- **No other Allow rule in the list has remote `Any`, `LocalSubnet` or a home-network address.** A broad Tailscale allow rule ("Tailscale-In") may be listed; the block rule overrides it for 7426.
 - The task shows Running, priority 7, runlevel Limited.
 - `--convert` in the start file: False.
 - Audio-like files: 0.
@@ -124,6 +124,7 @@ In an ELEVATED PowerShell on mika-pc:
 Unregister-ScheduledTask -TaskName 'Speech - whisper-server (SEC-NET-26)' -Confirm:$false
 Get-Process whisper-server -ErrorAction SilentlyContinue | Stop-Process
 Remove-NetFirewallRule -Name 'SEC-NET-26-whisper-from-cadeyserver'
+Remove-NetFirewallRule -Name 'SEC-NET-26-whisper-block-others'
 Import-Csv 'C:\ProgramData\SecurityConsole-mika\whisper-rules-before.csv' | Where-Object { $_.Enabled -eq 'True' } | ForEach-Object { Enable-NetFirewallRule -Name $_.Name; "switched back on: $($_.DisplayName)" }
 ```
 Then close the "Speech" window if it is still open. Deleting `C:\speech\` is the Admin's own step, if wanted. The tower's `speechRemote` setting goes back to empty (the Manager's).

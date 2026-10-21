@@ -83,9 +83,6 @@ Get-NetFirewallRule -Direction Inbound -Enabled True | ForEach-Object {
 - iphlpsvc shows Running, Automatic.
 - **11434 listens on `100.94.195.32` (svchost) and `127.0.0.1` (ollama) ONLY, with no `0.0.0.0` and no `::`.**
 - OLLAMA_HOST is empty for both user and machine.
-- Both SEC-NET-23 rules are in the list:
-  - Allow, remote 100.107.176.17;
-  - Block, remote everything but that address.
 - No other Allow rule in the list has remote `Any`, `LocalSubnet` or a home address. A broad Tailscale allow rule ("Tailscale-In", local = the Tailscale addresses, remote Any) may be listed; the block rule overrides it for 11434. Note it for Security, but it is not a failure.
 - From mika-pc itself, the request answers `200`. Its own address is left out of the block rule, so this works. If it fails, send the output: it decides how the factory question (SEC-NET-25) is answered.
 - Both SEC-NET-23 rules are listed: Allow from 100.107.176.17, and Block from every address except 100.107.176.17 and 100.94.195.32.
