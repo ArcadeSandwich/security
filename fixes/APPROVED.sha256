@@ -1,13 +1,12 @@
 # Approved scripts: "<path from the security folder> <SHA-256>", one per line, e.g. "fixes/FIX-1-x/fix.ps1 <hash>".
 # ONLY Server writes this file, after its review. The console refuses any file that runs elevated (pack scripts, lib, probe, console\apply.ps1 and common.ps1) not listed
 # here with a matching hash.
-# Reviewed and approved by Oak World Server on 2026-10-20 at security commit 57679ee. FIX-10 and FIX-9 added after review on 2026-10-20. FIX-0-example is approved only for the Admin's first run (a harmless test); Server removes it afterwards.
-console/apply.ps1 A45432F1CF42C8828B9294E712D05398C11F3069FA2A6E1BA96CC587DCC1DB54
-console/common.ps1 C0685ED654E17014421F1EBA82BFC01E7CB927B4EA1E299664C13576750A34F3
+# Reviewed and approved by Oak World Server on 2026-10-20 at security commit 57679ee. FIX-10 and FIX-9 added after review on 2026-10-20.
+# 2026-10-21: console/apply.ps1 and console/common.ps1 re-approved after Server's review of SEC-INFRA-7 (022b6f2). FIX-0-example removed: it ran in the Admin's first run (17:09), its one purpose.
+console/apply.ps1 21F6902D09D6DFE9C533F6B9A435C0DFAA94DAA966F7730973BFA40104D95822
+console/common.ps1 870596B0A958DDCF88F14DF44F4EDBD460634EBB177FAE4271C19BBA10A8849E
 lib/common.ps1 EAE69884BD71207A09CB88B2514488D726B8F4CC70B306CB60A61ACD04EC2E92
 lib/firewall-pack.ps1 EE5E314D2B64EF9DE49FD315FEDF595E56B9335D41DE99A65500F201CC619238
-fixes/FIX-0-example/fix.ps1 D08E051D3F04F422F197AA919C198C3FCD6CE603ADE6E8C1C60E0CEDF254C138
-fixes/FIX-0-example/check.ps1 200CF3EBCDA0563CB77B45EC679E9195F4851CF55607E539DD804E067E702981
 fixes/FIX-1-rdp-tailscale-only/fix.ps1 CDFEF84ED9E0D0AEB2CF67946DE1C46853C9F64900DD64B44427A160FCED5E29
 fixes/FIX-1-rdp-tailscale-only/check.ps1 358D8429EE66CF90E17D21AE7EB9A8CD27F66656F52480AC403443E7B44EC5E0
 fixes/FIX-2-hyperv-2179-off/fix.ps1 3B85BB08AB2C285B8628D1BCCD725597ED62E47C98E1EFD882D0AD184ADB305B
