@@ -24,17 +24,13 @@ For: LISTEN-10 (the listening app's heavy AI on the main PC). Owner of the steps
 ## Steps on mika-pc
 Paste one block at a time.
 
-**1. Tailscale: Run unattended (the Admin's Tailscale setting).** Click the Tailscale icon in the tray, then Preferences, and switch on **Run unattended**. Tailscale then connects when Windows starts, before logon, so 100.94.195.32 exists by the time Ollama starts.
+The order matters: Ollama moves to the Tailscale address only after the firewall rules are in place (step 5), so it is never reachable there unguarded.
 
-**2. Ollama settings: in a NORMAL PowerShell window (not "Run as administrator"),** so the values go to the account Ollama runs as:
-```powershell
-[Environment]::SetEnvironmentVariable('OLLAMA_HOST', '100.94.195.32:11434', 'User')
-[Environment]::SetEnvironmentVariable('OLLAMA_NUM_PARALLEL', '1', 'User')
-[Environment]::SetEnvironmentVariable('OLLAMA_MAX_LOADED_MODELS', '1', 'User')
-```
-Then quit Ollama from its tray icon and start it again from the Start menu, so it reads the new values. Pull the model in the same normal window: `$env:OLLAMA_HOST = '100.94.195.32:11434'; ollama pull qwen3:8b`. No keys or tokens are involved.
+**1. Pull the model while Ollama is still on localhost.** In a NORMAL PowerShell window (not "Run as administrator"), with no OLLAMA_HOST set: `ollama pull qwen3:8b`.
 
-**Steps 3 to 5: in an ELEVATED PowerShell** (right-click PowerShell, Run as administrator).
+**2. Tailscale: Run unattended (the Admin's Tailscale setting).** Click the Tailscale icon in the tray, then Preferences, and switch on **Run unattended**. Tailscale then connects when Windows starts, before logon, so 100.94.195.32 exists by the time Ollama starts.
+
+**Steps 3 and 4: in an ELEVATED PowerShell** (right-click PowerShell, Run as administrator).
 
 **3. Save the current Ollama rules (for the undo), then switch off every allow rule for Ollama:**
 ```powershell
@@ -51,7 +47,15 @@ This covers ollama.exe and "ollama app.exe", TCP and UDP, every profile, whether
 New-NetFirewallRule -Name 'SEC-NET-23-ollama-from-cadeyserver' -DisplayName 'SEC-NET-23 Ollama from cadeyserver only' -Group 'SecurityConsole SEC-NET-23' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 11434 -RemoteAddress 100.107.176.17 -Profile Any
 ```
 
-**5. Check (one block; paste the output to Security):**
+**5. Only now: move Ollama to the Tailscale address.** In a NORMAL PowerShell window, so the values go to the account Ollama runs as:
+```powershell
+[Environment]::SetEnvironmentVariable('OLLAMA_HOST', '100.94.195.32:11434', 'User')
+[Environment]::SetEnvironmentVariable('OLLAMA_NUM_PARALLEL', '1', 'User')
+[Environment]::SetEnvironmentVariable('OLLAMA_MAX_LOADED_MODELS', '1', 'User')
+```
+Then quit Ollama from its tray icon and start it again from the Start menu, so it reads the new values. No keys or tokens are involved.
+
+**6. Check (ELEVATED; one block; paste the output to Security):**
 ```powershell
 function Covers($ports) { foreach ($p in @($ports)) { if ($p -eq 'Any' -or $p -eq '11434') { return $true }; if ($p -match '^(\d+)-(\d+)$' -and 11434 -ge [int]$matches[1] -and 11434 -le [int]$matches[2]) { return $true } }; return $false }
 "--- listening on 11434"
@@ -69,17 +73,17 @@ Get-NetFirewallRule -Direction Inbound -Action Allow -Enabled True | ForEach-Obj
 - The rule `SEC-NET-23 Ollama from cadeyserver only | TCP 11434 | Any | program Any | remote 100.107.176.17` is in the list.
 - **No rule in the list has remote `Any`, `LocalSubnet` or a home-network address.** Any such rule is a finding: switch it off, or scope it, and send the output.
 
-**6. Test from cadeyserver (Security does this; read-only):** `GET http://100.94.195.32:11434/api/version` answers 200. From a phone on the home Wi-Fi with Tailscale off, `http://<mika-pc's home address>:11434/api/version` must fail to connect.
+**7. Test from cadeyserver (Security does this; read-only):** `GET http://100.94.195.32:11434/api/version` answers 200. From a phone on the home Wi-Fi with Tailscale off, `http://<mika-pc's home address>:11434/api/version` must fail to connect.
 
 ## Standing step: after every Ollama update
-**Run step 5 again after every Ollama update** (Ollama updates itself, and the tray shows "Restart to update"). Then do two things:
+**Run step 6 again after every Ollama update** (Ollama updates itself, and the tray shows "Restart to update"). Then do two things:
 - If a new rule appears with remote `Any`, run step 3 again.
-- If Ollama listens anywhere other than 100.94.195.32, run step 2 again.
+- If Ollama listens anywhere other than 100.94.195.32, run step 5 again.
 
 Resilience rechecks after each update (SEC-NET-25). If Windows shows an "Allow access" prompt for Ollama, press Cancel.
 
 ## If the tower says mika-pc is unreachable
-Usually Ollama started before Tailscale (the logon race) and its bind failed. On mika-pc, quit Ollama from its tray icon and start it again from the Start menu. With "Run unattended" on (step 1) this should not happen. Meanwhile the tower uses its fallback, so LISTEN is slower, not stopped.
+Usually Ollama started before Tailscale (the logon race) and its bind failed. On mika-pc, quit Ollama from its tray icon and start it again from the Start menu. With "Run unattended" on (step 2) this should not happen. Meanwhile the tower uses its fallback, so LISTEN is slower, not stopped.
 
 ## The second lock on Tailscale's side
 - **Already covered by FIX-7 for people shared in.** FIX-7's policy lets them reach only `cadeyserver:7420`, so no shared person can reach mika-pc at all.
