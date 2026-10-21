@@ -1,0 +1,72 @@
+# SEC-SECRETS-10, part 2: limit who can read the IRL stream's secret folders
+
+Status: draft
+
+- **What is wrong:** `C:\irl-stream\private` and `C:\irl-stream\private-musta` hold the stream keys (now including the named keys' streamkeys.json), the dashboard passwords, the OBS remote password and the Twitch app secret. Today every local account can read them: BUILTIN\Users has read (RX), and Authenticated Users can even change them (Modify), all inherited from C:\. The `0o600` mode that the dashboard sets on streamkeys.json does nothing on Windows.
+- **The fix:** each folder stops inheriting and gets exactly three entries: Administrators Full control, SYSTEM Full control, and CadeyServer Modify. Both dashboards run as CadeyServer ("Startup - IRL Stream" and "Startup - IRL Musta", RunLevel Limited, so the Administrators entry doesn't count for them), and FIX-9 keeps that account, so they still read and write.
+- **By SID, not name:** this Windows is Norwegian (BUILTIN\Administratorer, NT-MYNDIGHET\SYSTEM), so every grant below uses SIDs: Administrators `S-1-5-32-544`, SYSTEM `S-1-5-18`, Users `S-1-5-32-545`, Authenticated Users `S-1-5-11`, and CadeyServer's own SID, looked up in step 2.
+- **The four unknown SIDs:** they are not on these folders (C:\irl-stream is outside C:\server; read on 2026-10-21, step 1). If they are ever inherited here, the inheritance break removes them, and that is intended: only the three entries above remain.
+- Owner of the folders: IRLToolkit. The Admin applies this, in an elevated window. No step reads or prints a file's content.
+
+## 1. Read only: look first
+In any PowerShell window:
+```powershell
+foreach ($d in 'C:\irl-stream\private', 'C:\irl-stream\private-musta') { "== $d  owner: $((Get-Acl $d).Owner)"; icacls $d }
+```
+Expected today (2026-10-21): owner CADEYSERVER\CadeyServer; inherited (I) entries for Administratorer (F), SYSTEM (F), Brukere (RX) and Godkjente brukere (M). If you see anything else, stop and send it to Security · Secrets.
+
+## 2. Save today's permissions for the undo (elevated)
+Open **Windows PowerShell as administrator**, then:
+```powershell
+$state = 'C:\ProgramData\SecurityConsole\state\SEC-SECRETS-10'
+New-Item -ItemType Directory -Force $state | Out-Null
+icacls $state /inheritance:r /grant:r '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-18:(OI)(CI)F'    # only Administrators and SYSTEM can change the saved copy
+icacls 'C:\irl-stream\private'       /save "$state\private.acl" /t
+icacls 'C:\irl-stream\private-musta' /save "$state\private-musta.acl" /t
+$me = ([Security.Principal.NTAccount]"$env:COMPUTERNAME\CadeyServer").Translate([Security.Principal.SecurityIdentifier]).Value
+"CadeyServer SID found: $([bool]$me)"
+```
+Each .acl file lists the folder and its files (relative names such as `private\keys.json`), each followed by one permissions line. It holds no file contents.
+
+## 3. Apply (same elevated window)
+```powershell
+foreach ($d in 'C:\irl-stream\private', 'C:\irl-stream\private-musta') {
+  icacls $d /grant "*${me}:(OI)(CI)M"                              # first, so the dashboards never lose access
+  icacls $d /inheritance:r                                          # stop inheriting; the inherited entries (Users, Authenticated Users, any unknown SID) go
+  icacls $d /grant:r '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-18:(OI)(CI)F' "*${me}:(OI)(CI)M"
+  icacls "$d\*" /reset /t /c                                        # every file inside takes the folder's three entries
+}
+```
+
+## 4. Check
+1. Elevated window: `icacls C:\irl-stream\private` and `icacls C:\irl-stream\private-musta`. Each must show exactly three entries, none marked (I): Administratorer (OI)(CI)(F), SYSTEM (OI)(CI)(F) and CadeyServer (OI)(CI)(M). There must be no Brukere and no Godkjente brukere entry.
+2. Read and write test as CadeyServer, in a **normal (not elevated)** PowerShell window. It opens each file and closes it, without printing anything from it:
+   ```powershell
+   foreach ($d in 'C:\irl-stream\private', 'C:\irl-stream\private-musta') {
+     $n = 0; foreach ($f in Get-ChildItem $d -File) { [IO.File]::OpenRead($f.FullName).Dispose(); $n++ }
+     $t = Join-Path $d 'acl-write-test.tmp'; Set-Content $t 'x'; Remove-Item $t
+     "$d : read $n files, write OK"
+   }
+   ```
+3. Restart both dashboards through their own tasks (check nobody is live first: `node C:\irl-stream\tools\obs.js GetStreamStatus`), then:
+   `powershell -File C:\irl-stream\tools\restart-dashboards.ps1`
+4. After about 10 seconds, both must answer locally. 200 or 401 means up (401: the door wants its code); no answer means down:
+   ```powershell
+   foreach ($u in 'http://127.0.0.1:3002/api/stream/status', 'http://127.0.0.1:3003/api/stream/musta/status') {
+     try { (Invoke-WebRequest -UseBasicParsing $u -TimeoutSec 5).StatusCode } catch { [int]$_.Exception.Response.StatusCode }
+   }
+   ```
+5. Open the stream page once and check the keys still load (IRLToolkit can confirm).
+
+## 5. Undo (elevated)
+```powershell
+$state = 'C:\ProgramData\SecurityConsole\state\SEC-SECRETS-10'
+icacls 'C:\irl-stream\private'       /inheritance:e
+icacls 'C:\irl-stream\private-musta' /inheritance:e
+icacls 'C:\irl-stream' /restore "$state\private.acl"
+icacls 'C:\irl-stream' /restore "$state\private-musta.acl"
+```
+Then run step 1 again: it must look as it did before. A file added after step 2 keeps the folder's new entries. Run `icacls "<that file>" /reset` to give it the old inherited ones.
+
+## What this does not do
+Every chat on this PC runs as CadeyServer too, so this keeps the secrets from other accounts and programs, not from the chats. The protections against leaks stay: `private*/` in .gitignore (SEC-SECRETS-8), check.js knowing the values (part 1 of SEC-SECRETS-10), and changing the keys if one ever leaks.
