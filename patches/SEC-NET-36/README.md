@@ -1,6 +1,6 @@
 # SEC-NET-36: an email-code login (Cloudflare Access) in front of live.arcadesandwich.com
 
-Status: draft
+Status: reviewed-security
 For: Q-LIVE-LOCK (the Admin's choice). The IRL dashboard (IRLToolkit's, `C:\irl-stream\dashboard`, 127.0.0.1:3002) keeps its own password. Access adds a second lock in front of it. Owner of the steps: the Admin, in the Cloudflare dashboard (Zero Trust). Outside check: Security · Network (SEC-NET-37). Recheck of the steps: Security · Resilience (SEC-NET-38). Never touches play.arcadesandwich.com.
 
 ## What must stay reachable without the email login (IRLToolkit's list, checked in the code)
@@ -15,7 +15,9 @@ For: Q-LIVE-LOCK (the Admin's choice). The IRL dashboard (IRLToolkit's, `C:\irl-
 
 The code has no other public route. `/api/stream/pub/*` is served only from the features' "public" tables, and today only twitchapp has any. Everything else needs the dashboard login (401 otherwise).
 
-**Musta's channel:** the dashboard passes `/stream?c=musta` and `/api/stream/musta/...` to Musta's own dashboard. Those stay behind the email login (people use them). If Musta also runs a clip showcase or overlay in OBS, its paths are `/api/stream/musta/pub/...` and `/api/stream/musta/overlay`, and they need their own bypass apps. IRLToolkit to confirm; none is added here.
+**Musta's channel:** the dashboard passes `/stream?c=musta` and `/api/stream/musta/...` to Musta's own dashboard. Those stay behind the email login (people use them). **Checked: none needed today** (IRLToolkit, 2026-10-21).
+- Musta's OBS loads nothing through the dashboard: it has no browser sources, its media sources read SRT straight from the stream VM, and its remote control is 127.0.0.1:4455.
+- **IRLToolkit tells Security before any overlay or clips source is added for Musta.** That source would use `/api/stream/musta/pub/...` or `/api/stream/musta/overlay`, and would then need its own bypass app.
 
 ## Why separate Bypass apps, not Bypass policies
 An Access policy applies to its whole app; it can't be limited to a path. So each public path gets **its own small Access application with one Bypass policy**. Access uses the most specific matching app for a request: `live.arcadesandwich.com/api/stream/pub/*` wins over the main `live.arcadesandwich.com` app for those paths only. That is the robust way: a bypass can never widen beyond its own path.
@@ -28,7 +30,9 @@ An Access policy applies to its whole app; it can't be limited to a path. So eac
 - **`%2F` and `//`:**
   - The dashboard reads the path undecoded, so `pub%2F..%2Fx` doesn't start with `pub/` and falls to the login check (401).
   - `//` is not collapsed; `/api/stream//pub/...` misses `pub/`, so 401 or 404.
-- **What else falls under a bypass:** only paths that start with exactly those three prefixes. `/api/stream/overlay` is an exact path (no `*`), so `/api/stream/overlay/...` gets the login.
+- **What else falls under a bypass:** only paths below those three prefixes.
+  - An Access path also covers what lies under it. Cloudflare's application paths doc says a path with no rule of its own "will inherit any rules set for" its parent path. So the overlay bypass also covers `/api/stream/overlay/...`.
+  - That is safe: the dashboard serves `overlay` only as an exact route (server.mjs: `route === "overlay"`), and there is nothing below it. A request to `/api/stream/overlay/<anything>` falls to the dashboard's login check and gets 401.
 
 ## The OBS remote key in the wss URL
 - The key is part of the path. Cloudflare can show request paths in its analytics and security events, and in logs if Logpush is ever set up (not on today's plan), so the key could be seen by anyone with access to the Cloudflare account.
@@ -62,7 +66,7 @@ An Access policy applies to its whole app; it can't be limited to a path. So eac
 3. **Three bypass apps.** Each one: Add an application, Self-hosted, a session duration of no matter, and one policy with Action **Bypass**, Include **Everyone**:
    - Name `live pub (clips, Twitch callback)`, domain `live.arcadesandwich.com`, path `api/stream/pub/*`.
    - Name `live OBS remote`, domain `live.arcadesandwich.com`, path `api/stream/ws/obsremote/*`.
-   - Name `live overlay`, domain `live.arcadesandwich.com`, path `api/stream/overlay` (exact, no `*`).
+   - Name `live overlay`, domain `live.arcadesandwich.com`, path `api/stream/overlay` (Access also covers what lies under it; the dashboard has nothing there, so those requests get its 401).
 4. **URL normalization:** in the arcadesandwich.com zone, Rules, Settings, URL normalization: check that "Normalize incoming URLs" is on, type Cloudflare.
 5. **Then the hostname:** add `live.arcadesandwich.com -> http://localhost:3002` to the existing tunnel (Networks, Tunnels, the tunnel, Public hostnames). **Never touch play.arcadesandwich.com.**
 6. **Tell Security:** SEC-NET-37 checks from outside:
