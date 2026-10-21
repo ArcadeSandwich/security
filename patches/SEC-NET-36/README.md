@@ -12,10 +12,11 @@ For: Q-LIVE-LOCK (the Admin's choice). The IRL dashboard (IRLToolkit's, `C:\irl-
 | `/api/stream/pub/twitchapp/callback` | the Twitch login return (the Admin's browser) | It checks a **one-time state**: made by the logged-in owner, stored as a hash, compared in constant time, valid for 10 minutes and used once. Then it checks the code's format, exchanges the code, and answers with a small page that escapes all its text and holds no secret. 10 tries per minute. |
 | `/api/stream/ws/obsremote/<key>` | OBS remote apps (WebSocket) | It refuses plain ws:// (and flags the key as leaked), refuses when the feature is off, and **refuses a wrong key with a per-address try limit**. It also needs OBS's own WebSocket password (it refuses when OBS has none), and caps the number of connections. |
 | `/api/stream/overlay` | the OBS overlay page | It is GET only, holds no data, and is served with its own CSP: read-only. |
+| `/api/stream/musta/ws/obsremote/<key>` | Musta's OBS remote apps (WebSocket; the Admin's yes, 2026-10-21) | The tower hands only this one WebSocket path on to Musta's dashboard, matched by an anchored pattern (`^/api/stream/<channel>/ws/obsremote/`), for known channels only. At most **8 hand-offs** are open at once (STREAM_HANDOFF_MAX), because they are made before the key check. Musta's dashboard then checks a **32-byte random key**, allows **10 wrong tries per CF-Connecting-IP**, refuses ws://, and needs **OBS's own WebSocket password** as lock 2. |
 
 The code has no other public route. `/api/stream/pub/*` is served only from the features' "public" tables, and today only twitchapp has any. Everything else needs the dashboard login (401 otherwise).
 
-**Musta's channel:** the dashboard passes `/stream?c=musta` and `/api/stream/musta/...` to Musta's own dashboard. Those stay behind the email login (people use them). **Checked: none needed today** (IRLToolkit, 2026-10-21).
+**Musta's channel:** the dashboard passes `/stream?c=musta` and `/api/stream/musta/...` to Musta's own dashboard. Those stay behind the email login (people use them). **Checked for browser sources: none needed** (IRLToolkit, 2026-10-21). **Musta's OBS remote got its own bypass app** on the Admin's yes (the fourth one, in the table above).
 - Musta's OBS loads nothing through the dashboard: it has no browser sources, its media sources read SRT straight from the stream VM, and its remote control is 127.0.0.1:4455.
 - **IRLToolkit tells Security before any overlay or clips source is added for Musta.** That source would use `/api/stream/musta/pub/...` or `/api/stream/musta/overlay`, and would then need its own bypass app.
 
@@ -42,7 +43,7 @@ An Access policy applies to its whole app; it can't be limited to a path. So eac
   - OBS's own WebSocket password stays the second lock.
 
 ## The run order (Server's OR345)
-1. **The Admin:** One-time PIN, the main Access app, the three bypass apps and the URL normalization check (steps 1 to 4 below).
+1. **The Admin:** One-time PIN, the main Access app, the four bypass apps and the URL normalization check (steps 1 to 4 below).
 2. **The Admin:** the live.* hostname on the tunnel (step 5 below).
 3. **IRLToolkit:** moves the OBS "CLIP SHOWCASE" source to live.*, and checks that it loads. It is a bypassed path, so it works under Access.
 4. **The Admin:** adds `https://live.arcadesandwich.com/api/stream/pub/twitchapp/callback` as an OAuth Redirect URL in the Twitch developer console (dev.twitch.tv, the app). Keep the old one until the switch is done, then remove it.
@@ -50,12 +51,12 @@ An Access policy applies to its whole app; it can't be limited to a path. So eac
    - the game stops passing `/api/stream/*` and the WebSocket to 3002;
    - `arcadesandwich.com/stream` stays only as a 308 forward to live.* (no backend) for the Admin's 30 days.
 6. **Security · Network, SEC-NET-37 from outside, on both hosts:**
-   - live.*: Access on everything except the three bypasses;
+   - live.*: Access on everything except the four bypasses;
    - `arcadesandwich.com/api/stream/*` and the ws path: 404, or no longer reaching 3002;
    - `arcadesandwich.com/stream`: a 308 to live.* only.
 
 ## Steps for the Admin (Cloudflare dashboard, then Zero Trust)
-**Order: create all four Access apps first, then put the hostname on the tunnel, so live.* is never open with only the dashboard password.** If live.* already answers, do the Access apps now. Until they exist, live.* has the same exposure as arcadesandwich.com/stream today (see "The side door" below).
+**Order: create all five Access apps (the main app and four bypass apps) first, then put the hostname on the tunnel, so live.* is never open with only the dashboard password.** If live.* already answers, do the Access apps now. Until they exist, live.* has the same exposure as arcadesandwich.com/stream today (see "The side door" below).
 
 1. **Login method:** Zero Trust, Settings, Authentication, Login methods. Check that **One-time PIN** is there (add it if not). No other method is needed.
 2. **The main app:** Access, Applications, Add an application, Self-hosted.
@@ -64,10 +65,11 @@ An Access policy applies to its whole app; it can't be limited to a path. So eac
    - Identity providers: One-time PIN only, with "Instant auth" on (skips the method picker).
    - Policy: Name `allowed people`, Action **Allow**, Include, Emails: `<the Admin's email>`, `<Musta's email>`, `<each moderator's email>`. Only these; no "Everyone", no email domain.
    - Settings, Cookies: **leave the eager redirect cookie setting off** (MustaHub's login loop came from it). Leave "HTTP Only" on and "Binding Cookie" off (it breaks WebSockets).
-3. **Three bypass apps.** Each one: Add an application, Self-hosted, a session duration of no matter, and one policy with Action **Bypass**, Include **Everyone**:
+3. **Four bypass apps.** Each one: Add an application, Self-hosted, a session duration of no matter, and one policy with Action **Bypass**, Include **Everyone**:
    - Name `live pub (clips, Twitch callback)`, domain `live.arcadesandwich.com`, path `api/stream/pub/*`.
    - Name `live OBS remote`, domain `live.arcadesandwich.com`, path `api/stream/ws/obsremote/*`.
    - Name `live overlay`, domain `live.arcadesandwich.com`, path `api/stream/overlay` (Access also covers what lies under it; the dashboard has nothing there, so those requests get its 401).
+   - Name `live Musta OBS remote`, domain `live.arcadesandwich.com`, path `api/stream/musta/ws/obsremote/*`, policy "live public bypass". Its locks are the key and OBS's password, as in the table.
 4. **URL normalization:** in the arcadesandwich.com zone, Rules, Settings, URL normalization: check that "Normalize incoming URLs" is on, type Cloudflare.
 5. **Then the hostname:** add `live.arcadesandwich.com -> http://localhost:3002` to the existing tunnel (Networks, Tunnels, the tunnel, Public hostnames). **Never touch play.arcadesandwich.com.**
 6. **Tell Security:** SEC-NET-37 checks from outside:
@@ -93,7 +95,7 @@ To let someone new test, **add their email to the main app's Allow policy**, and
 ## Undo
 **Undoing the Access login (always in this order):**
 1. **First** remove the `live.arcadesandwich.com` public hostname from the tunnel (Networks, Tunnels, the tunnel, Public hostnames). This isn't optional: it must go whenever the apps go.
-2. **Then** delete the four Access apps (Zero Trust, Access, Applications).
+2. **Then** delete the five Access apps (the main app and the four bypass apps) (Zero Trust, Access, Applications).
 
 Never the other way round: with the apps gone and the hostname still on the tunnel, live.* is open to the internet behind only the dashboard password.
 
