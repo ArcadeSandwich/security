@@ -6,6 +6,7 @@ Status: reviewed-security
 - **The fix:** each folder stops inheriting and gets exactly three entries: Administrators Full control, SYSTEM Full control, and CadeyServer Modify. Both dashboards run as CadeyServer ("Startup - IRL Stream" and "Startup - IRL Musta", RunLevel Limited, so the Administrators entry doesn't count for them), and FIX-9 keeps that account, so they still read and write.
 - **By SID, not name:** this Windows is Norwegian (BUILTIN\Administratorer, NT-MYNDIGHET\SYSTEM), so every grant below uses SIDs: Administrators `S-1-5-32-544`, SYSTEM `S-1-5-18`, Users `S-1-5-32-545`, Authenticated Users `S-1-5-11`, and CadeyServer's own SID, looked up in step 2.
 - **The four unknown SIDs:** they are not on these folders (C:\irl-stream is outside C:\server; read on 2026-10-21, step 1). If they are ever inherited here, the inheritance break removes them, and that is intended: only the three entries above remain.
+- **Who opens these folders (IRLToolkit, 2026-10-21):** only CadeyServer: the two dashboards, IRLToolkit's tools, and vm/make-stream-urls.sh through multipass. OBS, the Linux VM and Multipass never read them. New files inherit the three entries through (OI)(CI).
 - Owner of the folders: IRLToolkit. The Admin applies this, in an elevated window. No step reads or prints a file's content.
 
 ## 1. Read only: look first
@@ -59,10 +60,11 @@ Run steps 2 and 3 in the same window, so `$state` and `$me` are still set.
    ```
 3. Restart both dashboards through their own tasks, only when neither channel is live (check first: `node C:\irl-stream\tools\obs.js GetStreamStatus`). Do this whole patch before FIX-9 or after it, never while FIX-9 is being applied, since FIX-9 changes the same two tasks. Then:
    `powershell -File C:\irl-stream\tools\restart-dashboards.ps1`
-4. After about 10 seconds, both must answer locally. 200 or 401 means up (401: the door wants its code); no answer means down:
+4. After about 10 seconds, both dashboard pages must answer locally with **200**. Anything else (404, 500, no answer) means run the undo (step 5):
    ```powershell
-   foreach ($u in 'http://127.0.0.1:3002/api/stream/status', 'http://127.0.0.1:3003/api/stream/musta/status') {
-     try { (Invoke-WebRequest -UseBasicParsing $u -TimeoutSec 5).StatusCode } catch { [int]$_.Exception.Response.StatusCode }
+   foreach ($u in 'http://127.0.0.1:3002/stream', 'http://127.0.0.1:3003/musta') {
+     $code = try { (Invoke-WebRequest -UseBasicParsing $u -TimeoutSec 5).StatusCode } catch { if ($_.Exception.Response) { [int]$_.Exception.Response.StatusCode } else { 0 } }
+     "$u -> $code $(if ($code -eq 200) { 'OK' } else { 'NOT OK: run the undo' })"
    }
    ```
 5. Open the stream page once and check the keys still load (IRLToolkit can confirm).
