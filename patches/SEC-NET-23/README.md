@@ -1,6 +1,6 @@
 # SEC-NET-23 (v3): Ollama on mika-pc, reachable over Tailscale only from cadeyserver
 
-Status: draft (v3; the lead reviews)
+Status: reviewed-security (v3, Security 2026-10-21: portproxy on the Tailscale address, allow cadeyserver plus block every other sender, step 0 clears an open OLLAMA_HOST)
 For: LISTEN-10 (the listening app's corrector on the main PC). Owner of the steps: the Admin, on mika-pc. Recheck: Security · Resilience (SEC-NET-25). Not a console pack: it runs on another PC.
 
 ## What changed in v3

@@ -1,6 +1,6 @@
 # SEC-NET-26: whisper-server on mika-pc, reachable only from cadeyserver
 
-Status: draft
+Status: reviewed-security (Security 2026-10-21: bind on the Tailscale address, allow cadeyserver plus block every other sender, no --convert, the task in a normal window)
 For: LISTEN-12 (speech to text on the main PC). Plan: `C:\server\ai-workspace\logs\TRANSCRIPT-LOG.md`, "PLAN LISTEN-12". Owner of the steps: the Admin, on mika-pc. Recheck: Security · Resilience (SEC-NET-27). Built like SEC-NET-23. Not a console pack: it runs on another PC.
 
 ## Why this matters
