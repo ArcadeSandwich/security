@@ -1,6 +1,6 @@
 # SEC-PROG-47: LISTEN-11, listening back to, downloading and deleting a meeting's recording
 
-Status: draft (waiting for Security's review)
+Status: reviewed-security (Security, 2026-10-21: the recording build waits for the memory guard on the route too; one build per meeting)
 Owner: the Transcript Tool (listen\). main.js's part is already committed (7961e8d) and needs no change.
 Made against: C:\server\ai-workspace\app at 7961e8d plus the Transcript Tool's UNCOMMITTED LISTEN-11 work as it was on 2026-10-21 (listen\server.js, the new listen\recording.js, listen\public\app.js and the new test\listen-11.test.js). The diff's base is those working files, so apply it after the Transcript Tool commits LISTEN-11, or re-check if they've changed.
 
