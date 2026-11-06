@@ -137,3 +137,46 @@ Free memory 1.1 GB, so only small read-only commands ran.
 - SMP_main\monitor.ps1 records PC and server state once a minute, for after a crash. It warns no one.
 - Nothing checks ports 3000, 3001, 3004, 11434, 3002, 3003 or 25565, and nothing tells the Admin when one stops.
 - Finding: **medium**: an outage is noticed only when someone tries to use the service. Fix (a PLAN for Server, not built): one small read-only health check every 5 minutes that posts "down" to the Work desk once per outage, and "back" when it returns.
+
+## 2026-11-06 Job from Server via Security · Lead: C: space loss and two Minecraft closes
+Read-only. Free memory was 2.1 GB at the start. No elevation (vssadmin refused, so shadow copies are unread).
+
+### a) C: free space, from SMP_main\monitor (c_free_gb per minute)
+- It fell from 135.5 GB (11-05 01:59) to 105.8 GB (11-06 13:35), about 30 GB.
+- Steps of 1 GB or more:
+  - 11-05 02:00: -3.3
+  - 11-05 09:24: -1.5
+  - 11-05 10:33-10:34: -2.3
+  - 11-05 11:25: -1.1
+  - 11-06 03:40: -2.6, then +2.2 at 03:47
+  - 11-06 13:10-13:26: -11.1
+- What grew (written since 11-05):
+  - **Server's own scratchpad** (Temp\claude\...\65ec44a5..., the dawn-lab footage): 9.9 GB of downloaded videos, among them video.f302.webm (6.4 GB) and video.mp4 (1.0 GB), plus a 0.56 GB task output. These match the 11-05 10:33-11:25 steps.
+  - **CoreProtect database** (Arcade SMP, plugins\CoreProtect\database.db): 10.25 GB. It is Minecraft's block-history log, growing since 2026-08-08 and still written now (13:39).
+  - **Claude desktop app VM** (Local\Claude-Data\...\claudevm.bundle): rootfs.vhdx 7.5 GB and sessiondata.vhdx 0.5 GB, written at 13:16 and 13:31 today. This most likely explains the 11-06 13:10-13:26 drop.
+  - **Ollama self-update** (Local\Ollama\updates_v2\...\OllamaSetup.exe): 1.57 GB, downloaded 11-06 03:40, which matches 03:40. The +2.2 GB at 03:47 is the installer's unpacked files being removed.
+  - 11-05 02:00 and 09:24 are not identified, since the files have been rewritten since. One candidate is a System Restore or shadow copy at 02:00, which can't be read without admin rights.
+- Not the cause: SoftwareDistribution 0.1 GB, Windows Defender 0.6 GB, the Ollama models 12.8 GB (unchanged), the C:\server repos (17.2 GB, nothing big written since 11-05), and ai-workspace trash 2.6 GB (older).
+- Risk: **medium**. C: has 105.8 GB free of 464, which is 23%, close to the 20% line (93 GB). Today's rate crosses it within days.
+  - The big, steady grower is CoreProtect.
+  - The fastest single source is chats' video downloads into their scratchpads.
+- Fixes (none done):
+  1. Server clears its own dawn-lab footage once it is used: about 10 GB. Deleting is the Admin's call.
+  2. SMP Main sets a CoreProtect purge (for example `co purge t:90d`, run in the server console). It deletes old block history, so it is the Admin's decision.
+  3. OllamaSetup.exe in updates_v2 can go after the update.
+  4. The Admin runs `vssadmin list shadowstorage` elevated to check shadow-copy use.
+
+### b) Minecraft window and java closing together
+- **11-03 07:22.** The monitor shows java 26124 (up 11.3 days) present at 07:21 and "server gone" at 07:22.
+  - Its last log line was at 23:02 the night before. That is most likely just idle, because Paper logs little with nobody on.
+  - No crash file, no WER/Application Error/Hang for java, and no Kernel-Power, Winlogon logoff, session change or Windows Update restart.
+  - Memory was tight but not exhausted: commit 29.0/35.9 GB, 1.2-2.6 GB available, and no Resource-Exhaustion event in 30 days.
+  - restarts.log has no stop line; the next start was 10:47:58 by hand.
+- **10-22 18:56.** There is no monitor file for that day.
+  - At 18:57:16-17 the TerminalServices log shows a session arbitration: session 3 disconnected, session 2 disconnected with reason 5 (replaced by another connection), and a Remote Desktop reconnect. DWM then re-registered.
+  - No crash, logoff or update events.
+- Reading: in both cases cmd and java ended together with no error. That fits the console window being closed, by a click on X or by something ending cmd/conhost, rather than a crash. On 10-22 it lines up with a Remote Desktop session takeover. A reconnect alone should not close windows, but a session being replaced or logged off would.
+- Context: Windows flagged memory leaks (RADAR_PRE_LEAK) in java.exe on 11-01, in vmms.exe on 11-03 at 03:38, and in claude.exe, node.exe, ollama app.exe, obs64.exe and whisper-server.exe.
+- To catch it next time:
+  - SMP Main has the monitor also log conhost/cmd state and who ended them.
+  - The Admin step: turn on "Audit Process Termination" (Security log event 4689), which records which process ended java and cmd.
