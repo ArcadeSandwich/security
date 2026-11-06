@@ -1,14 +1,17 @@
 # Security · Agents log
 
 ## Handoff
-Doing: idle; round 2 pieces done (SEC-AG-5, 6, 11, rechecks 13/14/15, 14b, PROG-18, INS-009 on Work's boxes).
-Next: recheck SEC-AG-13 v2 (Control read-only; redo the throwaway hook tests), SEC-AG-16 (Plan boxes read-only), SEC-AG-17 (MAIN/Absurdity, after the Admin's choice) when each lands; SEC-AG-4 live tests wait for the Admin's yes; recheck approvals vs request log after the first real approval.
-Files: this log; playbook/inbox for reports.
+Doing: idle (2026-11-06). Notes live here now (C:\server\security\logs, local repo, no push); tracker C:\server\security\SECURITY-TRACKER.md.
+Next: SEC-AG-26 recheck once Server fixes agent-files.js (links named like agent files); R3-1 Finn Scout canary waits for > 4 GB free; SEC-AG-4 live tests wait for the Admin's yes.
+Files: this log; security\patches\SEC-AG-*; playbook\inbox for reports.
 
 ## Open requests
-- Security · Lead: GO for each recheck when Logging / AI Workspace Manager send DONE.
+- Security · Lead: GO for SEC-AG-26 when the agent-files.js fix lands.
 
 ## Log
+### 2026-11-06 · SEC-AG-26: not fixed yet · (this commit)
+Read-only. Playbook HEAD 1fdd7bb: no commit since bae2eba touches tools/lib/agent-files.js or tools/check.js. Both functions still test isSymbolicLink before isAgentEntry (neutraliseAgentFiles 34 vs 40, findActiveAgentFiles 59 vs 61), so an agent-named link or junction is neither renamed nor reported. Nothing run. Also committed my untracked patch folders SEC-AG-3, SEC-AG-16b and SEC-AG-22 (check.js OK).
+
 ### 2026-10-22 · SEC-AG-25 recheck, reading part (Playbook fb9323d); Resilience finishes · (this commit)
 I found the extra names, so Security · Resilience runs items 3 and 5 (the lead's call). Not run by me: free memory was 1.0 GB.
 (1) PASS: a case-insensitive, any-depth find over the full list in sources\ finds nothing active; 31 .untrusted files.
