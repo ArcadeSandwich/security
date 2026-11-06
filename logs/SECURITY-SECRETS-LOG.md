@@ -93,3 +93,10 @@ Free memory at start: 2.7 GB of 16 GB (INS-005: the checks are light).
 - Private: the anonymous GitHub API answers 404. gh isn't signed in, so visibility wasn't read through gh.
 - .gitignore covers private*/, data*/, logs/, recordings*/, .claude/, node_modules/, *.log, *.tmp, *.bak, *.env, .apikey, *secret*, *password*.txt, *.key, *.pem and factory/. All 14 secret files on disk are in private*\ and are ignored. The working folder has nothing untracked outside the ignored folders.
 - Suggestion (low, a second lock): add the secret file names themselves (keys.json, sessions.json, obsremote.json, twitch-app.json, streamkeys.json, stream-urls.txt, obs-websocket.txt, obs-remote-address.txt, mediamtx.json, dashboard-password.txt), so a copy outside private* is ignored too. `*password*.txt` doesn't cover a .json.
+
+## 2026-11-06, two more old oak-config copies (JOB from Server via Security · Lead; 1.15 GB free)
+- (1) Recycle Bin: $I5QUGT4 points to C:\server\oak-world\jobs\Network-OR70-09300332 (the whole folder was deleted). Its $R5QUGT4\oak-config.json was scanned in place with check.js (nothing restored or moved): OK, no live value (40 live values known). This matches round 2: that job config never held keys.
+- (2) C:\server\oak-world\archive\snapshot-2026-09-28\oak-world(-audio_tts).zip holds two config files. Only those two entries were extracted to my scratchpad; the copies were scanned with check.js, then deleted.
+  - oak-world/backups/oak-config.before-2026-09-27-fix.json: live labCode, geminiApiKeys[0-3].
+  - oak-world/oak-config.json: live labCode, extraProvidersOff[0].apiKey, plus an openai/anthropic-shaped key.
+  - LIVE keys: yes. The zip is in no git repo, and every local account can read it (Users RX, Authenticated Users M, inherited from C:\server). Medium, the same as W-4. Admin steps: delete the zip (or the two entries), or rotate per FIX-8's README; deleting is the Admin's.
